@@ -1,0 +1,656 @@
+Vc é um experiente analista de banco de dados
+
+Vc é um experiente desenvolvedor de aplicativo Web, especialista em segurança
+
+Vc é um experiente desenvolvedor de aplicativos, especialista em integração de aplicativos
+
+
+
+Situação:
+
+Possuo dois ou mais aplicativos web;
+
+Todos aplicativos deverão ter acesso com um único login;
+
+Um aplicativo é o Kontohub, focado para escritórios de contabilidade;
+
+Outro é o Kontozap, focado na comunicação (recebimento e envio de mensagem de watts e ligações por voz sobre IP);
+
+O Kontohub para uso interno enquanto que o Kontozap poderá ser vendido para outras empresas
+
+As empresas poderão ter outros aplicativos;
+
+Pelo Kontozap poderá acessar o Kontohub e outros aplicativos, e vise versa;
+
+Se o usuário estiver logado em aplicativo não precisará fazer um novo login;
+
+O banco de dados a ser usado é o Neon com versel, a autenticação deverá ser desenvolvida;
+
+Deverá estar preparado para trocar de banco (Neon e versel)
+
+Cada empresa deverá acessar somente as suas informações
+
+
+
+Desejo uma explicação de como isso funcionará e documento mestre para que o claude code possa desenvolver
+
+O Gemini disse
+Para estruturar um ecossistema de múltiplos aplicativos com login único e isolamento de dados, a arquitetura ideal é baseada em SSO (Single Sign-On) e um modelo de banco de dados Multi-tenant.
+
+Como especialista em segurança e integração, detalharei o funcionamento lógico e fornecerei o Documento Mestre para guiar o desenvolvimento via Claude Code.
+
+1. Como a Solução Funcionará
+A peça central será um Auth Service (Provedor de Identidade) centralizado.
+
+Autenticação Centralizada: Quando um usuário acessa o Kontohub ou Kontozap, ele é redirecionado para um subdomínio de autenticação (ex: auth.suaplataforma.com).
+
+Tokens JWT (JSON Web Tokens): Após o login, o serviço de autenticação emite um par de tokens (AccessToken e RefreshToken). O AccessToken conterá o tenant_id (ID da empresa), garantindo que o backend saiba exatamente quais dados aquele usuário pode acessar.
+
+Compartilhamento de Sessão: Utilizaremos Cookies HTTP-Only em um domínio pai (ex: .suaplataforma.com). Isso permite que, ao navegar do Kontozap para o Kontohub, o navegador envie o cookie automaticamente, validando a sessão sem novo login.
+
+Isolamento de Dados (RLS): No Postgres (Neon), utilizaremos Row Level Security (RLS). Cada tabela terá uma política que impede que um usuário da "Empresa A" veja registros da "Empresa B", mesmo que estejam na mesma tabela.
+
+2. Documento Mestre para Desenvolvimento (Master Doc)
+Este documento deve ser entregue ao Claude Code para iniciar o projeto.
+
+Projeto: Ecossistema Multi-App Kontohub/Kontozap
+1. Pilares Arquiteturais
+Framework: Next.js (App Router).
+
+Autenticação: Custom SSO Provider com JWT e Cookies compartilhados.
+
+Banco de Dados: PostgreSQL (via Neon/Vercel) com foco em portabilidade (SQL puro + Migrations).
+
+Estratégia Multi-tenant: Identificação por tenant_id em todas as tabelas e políticas de RLS.
+
+2. Estrutura de Banco de Dados (Schema)
+O esquema deve ser desacoplado para facilitar a troca de provedor.
+
+Tabela tenants: Armazena as empresas (ID, nome, plano, status).
+
+Tabela users: Informações globais do usuário.
+
+Tabela user_tenants: Relacionamento N:N (um usuário pode pertencer a mais de uma empresa).
+
+Tabela apps: Cadastro dos aplicativos (Kontohub, Kontozap) e permissões.
+
+3. Regras de Segurança e Integração
+Middleware de Auth: Um middleware centralizado no Next.js deve validar o JWT. Se o token for inválido ou ausente, redireciona para o login.
+
+Abstração de Banco (Repository Pattern): O Claude Code deve criar uma camada de serviço para o banco de dados.
+
+Exemplo: Em vez de chamar o Neon diretamente no componente, usa-se UserRepository.findByTenant(tenantId). Isso permite trocar Neon por qualquer outro PostgreSQL apenas mudando a string de conexão ou a biblioteca de driver.
+
+Cross-App Navigation: Implementar um "App Launcher" (menu lateral) que contenha links para os outros apps. O token de sessão deve ser validado via API centralizada em cada troca de contexto.
+
+4. Especificações Técnicas para o Claude Code
+Prompt de Inicialização:
+"Claude, desenvolva uma estrutura monorepo para dois aplicativos Next.js (Kontohub e Kontozap) que compartilham um serviço de autenticação centralizado.
+
+Implemente autenticação baseada em JWT salvos em Cookies HTTP-Only compartilhados (https://www.google.com/search?q=.dominio.com).
+
+Configure o Prisma ou Drizzle ORM para PostgreSQL focando em Row Level Security (RLS).
+
+Crie um middleware que verifique o tenant_id no token antes de qualquer consulta ao banco.
+
+Certifique-se de que a camada de banco de dados seja isolada (Repository Pattern) para que possamos migrar do Neon para outro provedor no futuro sem alterar a lógica de negócio."
+
+3. Preparação para Troca de Banco de Dados
+Para garantir que você não fique "preso" ao Neon ou Vercel:
+
+SQL Standard: Evite extensões proprietárias que existam apenas no Neon. Use recursos padrão do PostgreSQL.
+
+Migrations Externas: Utilize ferramentas como Drizzle Kit ou Prisma Migrate. As migrações devem ser arquivos .sql ou códigos que possam ser rodados em qualquer instância Postgres (RDS, Google Cloud SQL, ou um servidor local).
+
+Variáveis de Ambiente: Toda a conexão deve ser via DATABASE_URL. Trocar de banco será apenas mudar essa string no painel da Vercel.
+
+Próximo Passo Sugerido:
+Deseja que eu gere o esquema SQL inicial das tabelas de usuários e empresas seguindo as normas de segurança RLS?
+
+Você disse
+Quais as tabelas e campos do banco de dados
+
+O Gemini disse
+Como analista de banco de dados, projetei um esquema focado em escalabilidade horizontal e isolamento rigoroso. Para atender ao seu requisito de portabilidade (Neon/Vercel para qualquer outro Postgres), utilizaremos tipos de dados padrão e uma estrutura de Shared Schema com RLS (Row Level Security).
+
+Abaixo, as tabelas essenciais para sustentar o ecossistema Kontohub/Kontozap.
+
+1. Núcleo de Identidade e Multi-tenancy
+Estas tabelas controlam quem é o dono dos dados e quem pode acessá-los.
+
+Tabela: tenants (Empresas)
+Responsável por isolar os dados de cada cliente.
+
+id: uuid (Primary Key - PK)
+
+name: varchar(255) (Nome da empresa/escritório)
+
+slug: varchar(100) (Unique - ex: 'contabilidade-silva' para uso em subdomínios)
+
+created_at: timestamp
+
+status: enum ('active', 'suspended')
+
+Tabela: users (Usuários Globais)
+O usuário é único no ecossistema, independentemente de quantas empresas ele acesse.
+
+id: uuid (PK)
+
+email: varchar(255) (Unique)
+
+password_hash: text
+
+full_name: varchar(255)
+
+is_superadmin: boolean (Acesso total para sua equipe de suporte)
+
+Tabela: user_tenants (Vínculo Usuário x Empresa)
+Define qual usuário pertence a qual empresa e qual seu nível de acesso nela.
+
+user_id: uuid (FK -> users.id)
+
+tenant_id: uuid (FK -> tenants.id)
+
+role: enum ('owner', 'admin', 'editor', 'viewer')
+
+Composite PK: (user_id, tenant_id)
+
+2. Gestão de Aplicativos e Sessões
+Para controlar o acesso centralizado e o login único.
+
+Tabela: apps (Catálogo de Aplicativos)
+id: uuid (PK)
+
+name: varchar(50) (Ex: 'Kontohub', 'Kontozap')
+
+base_url: varchar(255) (URL do app para redirecionamento)
+
+api_key: uuid (Para integração entre apps)
+
+Tabela: app_subscriptions (Quais empresas têm quais apps)
+tenant_id: uuid (FK -> tenants.id)
+
+app_id: uuid (FK -> apps.id)
+
+active: boolean
+
+3. Exemplo de Tabelas de Negócio (Isolamento RLS)
+Todas as tabelas de funcionalidades específicas (como as do Kontozap ou Kontohub) devem ter a coluna tenant_id.
+
+Tabela: messages (Kontozap - Exemplo)
+id: bigint (PK)
+
+tenant_id: uuid (FK -> tenants.id) - Obrigatório para RLS
+
+direction: enum ('inbound', 'outbound')
+
+content: text
+
+contact_phone: varchar(20)
+
+4. Implementação de Segurança (PostgreSQL RLS)
+Para garantir que uma empresa nunca veja os dados de outra, o Claude Code deve configurar políticas de RLS no Neon. Funciona assim:
+
+SQL
+-- 1. Habilitar RLS na tabela
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+
+-- 2. Criar política: Usuário só vê dados onde o tenant_id coincide com sua sessão
+CREATE POLICY tenant_isolation_policy ON messages
+USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+5. Dicas para o Claude Code
+UUIDs: Use uuid_generate_v4() para IDs. Isso facilita a migração entre bancos sem conflitos de chaves sequenciais.
+
+Indices: Crie índices compostos em (tenant_id, created_at) para garantir que as consultas de cada empresa sejam sempre rápidas.
+
+Abstração: Instrua o Claude a usar uma "Connection Pool" (como o PgBouncer, já nativo no Neon) para suportar os múltiplos acessos dos apps simultaneamente.
+
+Esta estrutura permite que você adicione um "KontoHobby" ou qualquer outro app no futuro apenas inserindo uma linha na tabela apps, sem mexer na lógica de login.
+
+Você disse
+Mas se usar pgbouncer, nativo no Neon, não teremos problemas caso seja trocado de banco
+
+O Gemini disse
+Excelente observação. Como um arquiteto de sistemas focado em portabilidade, sua preocupação faz todo o sentido: depender de recursos específicos de um provedor pode gerar o temido "vendor lock-in".
+
+No entanto, no caso do PgBouncer, o risco é praticamente zero. Vou te explicar o porquê e como garantir que a troca de banco seja indolor:
+
+1. O PgBouncer é um Padrão de Mercado
+O PgBouncer não é uma ferramenta proprietária do Neon. Ele é um software de código aberto (Open Source) que é o padrão da indústria para gerenciamento de conexões PostgreSQL.
+
+Se você mudar para a AWS (RDS): Eles oferecem o RDS Proxy, que funciona de forma quase idêntica.
+
+Se você mudar para o Google Cloud: Eles têm o Cloud SQL Auth Proxy.
+
+Se você mudar para um Servidor Próprio (VPS): Você pode instalar o PgBouncer em 2 minutos com um apt-get install pgbouncer.
+
+2. A Camada de Abstração (O segredo da portabilidade)
+Para que a troca seja transparente, o segredo não está em "não usar" o PgBouncer, mas em como seu código se conecta a ele.
+
+No seu Documento Mestre, instruiremos o Claude Code a configurar duas variáveis de conexão:
+
+DATABASE_URL: Para consultas comuns (passando pelo PgBouncer/Pooler).
+
+DIRECT_URL: Para migrações de schema (conexão direta com o banco).
+
+Dessa forma, se você sair do Neon amanhã, você apenas trocará essas duas strings no seu arquivo .env ou no painel da Vercel. O código do seu aplicativo continuará enviando comandos SQL padrão e não saberá se existe um "pooler" no meio do caminho.
+
+3. Onde o RLS e o PgBouncer se encontram
+O único ponto de atenção real ao trocar de banco é como o RLS (Row Level Security) identifica o usuário. No Neon, usamos o comando:
+SET app.current_tenant_id = 'uuid-da-empresa';
+
+Este comando é SQL Puro. Ele funcionará em:
+
+Qualquer versão do PostgreSQL acima da 9.5.
+
+Qualquer provedor de nuvem.
+
+Com ou sem PgBouncer (desde que configurado em modo "transaction").
+
+4. Resumo da Estratégia de "Saída" (Exit Strategy)
+Para garantir que você possa trocar de banco sem problemas, o seu Documento Mestre deve exigir que o Claude Code:
+
+Use um ORM Agnóstico: (Drizzle ou Prisma). Eles geram SQL padrão que roda em qualquer Postgres.
+
+Evite extensões exclusivas: Não use recursos como "Neon Branching" dentro do código do aplicativo. Use-os apenas para o seu fluxo de trabalho de desenvolvimento.
+
+Tratamento de Conexão: O código deve ser capaz de abrir e fechar conexões de forma eficiente, algo que todo banco de dados moderno suporta através de drivers padrão (pg para Node.js).
+
+Veredito: O uso do PgBouncer no Neon é apenas uma conveniência de infraestrutura. Ele não "contamina" seu código. Se você migrar para um banco que não tem um pooler nativo, seu aplicativo continuará funcionando, apenas talvez com um desempenho ligeiramente menor sob carga pesada até que você instale um pooler próprio.
+
+Podemos seguir com a criação do Documento Mestre detalhando essa separação de URLs de conexão?
+
+Você disse
+Sim
+
+O Gemini disse
+Excelente. Com base na nossa estratégia de portabilidade, isolamento por RLS e login único (SSO), aqui está o Documento Mestre (Master Doc) formatado para que você possa fornecer ao Claude Code ou qualquer desenvolvedor sênior.
+
+Documento Mestre: Arquitetura Multitenant & SSO
+Projeto: Ecossistema Kontohub & Kontozap
+Stack: Next.js, PostgreSQL (Neon), Vercel, TailwindCSS.
+
+1. Visão Geral da Arquitetura
+O sistema consiste em um Identity Provider (IdP) centralizado e múltiplos aplicativos que compartilham a mesma base de usuários e sessão.
+
+SSO: Login único via domínio pai (.seudominio.com).
+
+Multitenancy: Isolamento lógico via tenant_id em nível de linha (RLS).
+
+Portabilidade: Camada de dados agnóstica para permitir troca de provedor de banco de dados.
+
+2. Estrutura do Banco de Dados (Schema SQL)
+SQL
+-- Habilitar extensão para UUID
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 1. TABELA DE EMPRESAS (TENANTS)
+CREATE TABLE tenants (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    slug VARCHAR(100) UNIQUE NOT NULL,
+    plan VARCHAR(50) DEFAULT 'free',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 2. TABELA DE USUÁRIOS
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    full_name VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 3. RELACIONAMENTO USUÁRIO x EMPRESA (RBAC)
+CREATE TABLE user_tenants (
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    role VARCHAR(50) DEFAULT 'user', -- 'admin', 'owner', 'viewer'
+    PRIMARY KEY (user_id, tenant_id)
+);
+
+-- 4. TABELA DE APLICATIVOS
+CREATE TABLE apps (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(50) NOT NULL, -- 'Kontohub', 'Kontozap'
+    base_url TEXT NOT NULL
+);
+3. Implementação do Row Level Security (RLS)
+Para garantir que cada empresa acesse apenas seus dados, todas as tabelas de negócio (ex: mensagens, clientes, faturas) devem seguir este padrão:
+
+Coluna Obrigatória: tenant_id UUID NOT NULL REFERENCES tenants(id).
+
+Habilitação do RLS: ALTER TABLE nome_da_tabela ENABLE ROW LEVEL SECURITY;.
+
+Política de Acesso:
+
+SQL
+CREATE POLICY tenant_isolation_policy ON nome_da_tabela
+USING (tenant_id = (SELECT current_setting('app.current_tenant_id')::UUID));
+4. Estratégia de Autenticação e Login Único (SSO)
+Fluxo de Login:
+Usuário acessa auth.seudominio.com.
+
+Após validar credenciais, o servidor gera um JWT contendo user_id e a lista de tenants aos quais ele tem acesso.
+
+O JWT é salvo em um Cookie com a flag Domain=.seudominio.com.
+
+Quando o usuário navega para kontohub.seudominio.com, o navegador envia o cookie automaticamente.
+
+O Middleware do Next.js lê o cookie, valida o JWT e extrai o tenant_id ativo.
+
+5. Diretrizes para o Claude Code (Prompts de Implementação)
+Instrução 01 (Database): "Claude, implemente a camada de banco de dados usando Drizzle ORM. Utilize o padrão de Repositório para que as chamadas SQL fiquem isoladas da lógica de negócio. Configure a conexão usando duas variáveis: DATABASE_URL (pooler) e DIRECT_URL (migrações)."
+
+Instrução 02 (Middleware): "Crie um Middleware no Next.js que intercepte todas as requisições. Ele deve validar o JWT no cookie compartilhado. Se o usuário tentar acessar o Kontohub, o middleware deve garantir que ele possui um registro na tabela user_tenants para aquela empresa."
+
+Instrução 03 (RLS Context): "Toda vez que uma transação no banco for aberta, execute primeiro o comando SET app.current_tenant_id = 'ID_DO_TENANT'. Isso garantirá que o PostgreSQL aplique as políticas de RLS corretamente."
+
+6. Garantia de Portabilidade (Anti Lock-in)
+Sem extensões exóticas: Manter-se no SQL padrão.
+
+Migrations em arquivos .sql: O Claude deve gerar migrations que possam ser executadas via CLI em qualquer servidor Postgres.
+
+Independência da Vercel: Embora o deploy seja na Vercel, o código deve ser em Node.js padrão, permitindo mover para Docker/AWS se necessário.
+
+Como usar este documento:
+Copie e cole este conteúdo no chat com o Claude Code. Ele servirá como a "Bíblia" do projeto, garantindo que ele não tome decisões que desviem do seu objetivo de segurança e flexibilidade de banco de dados.
+
+Deseja que eu detalhe mais alguma tabela específica de um dos aplicativos (ex: tabelas específicas do Kontohub)?
+
+Você disse
+Cada empresa terá usuário administrador/master que poderá ativar/inativar o usuário e dar permissões e fazer cadastros necessários
+
+O Gemini disse
+Com essa definição, adicionamos uma camada essencial de Governança de Acesso. Para que o Claude Code implemente isso corretamente, precisamos detalhar como o sistema diferenciará o "Dono da Conta" (Master) dos demais usuários e como as permissões serão aplicadas em cada funcionalidade.
+
+Aqui está a atualização do Documento Mestre, focando na gestão de usuários e no controle de permissões (RBAC - Role Based Access Control).
+
+3.1. Gestão de Usuários e Permissões (RBAC)
+Para que o administrador de cada empresa tenha autonomia, utilizaremos uma estrutura de permissões granulares.
+
+Campos Adicionais na Tabela user_tenants:
+status: enum ('active', 'inactive', 'pending') - Permite que o administrador bloqueie o acesso de um funcionário sem deletar o histórico de dados dele.
+
+permissions: jsonb - Armazena um objeto de permissões específicas (ex: {"can_edit_invoice": true, "can_delete_messages": false}). O uso de jsonb no Postgres é ideal aqui porque permite flexibilidade para novos apps no futuro.
+
+A Hierarquia de Perfis:
+Perfil	Descrição
+Owner / Master	Acesso total à empresa, gestão de faturamento e pode ativar/inativar outros administradores.
+Admin	Gerencia usuários (ativa/inativa), faz cadastros e configurações operacionais.
+User	Acesso operacional básico (apenas as permissões concedidas pelo Admin).
+4.1. Funcionalidades do Painel Administrativo
+O Claude Code deverá desenvolver um módulo de "Configurações da Empresa" disponível apenas para perfis Owner e Admin:
+
+Dashboard de Usuários: Listagem de todos os usuários vinculados ao tenant_id.
+
+Toggle de Status: Botão para alternar entre Ativo e Inativo.
+
+Matriz de Permissões: Checkbox para definir o que cada usuário pode acessar no Kontohub e no Kontozap.
+
+Audit Log (Recomendado): Uma tabela simples para registrar quem ativou/inativou quem, garantindo segurança jurídica para o escritório de contabilidade.
+
+5.2. Lógica de Bloqueio no Middleware
+Para que o bloqueio seja instantâneo em todos os aplicativos, o Middleware deve ser atualizado:
+
+Instrução para o Claude Code:
+"Claude, no Middleware de autenticação, após validar o JWT, você deve consultar a tabela user_tenants para verificar o campo status. Se o status for inactive, o sistema deve invalidar a sessão imediatamente e redirecionar o usuário para uma página de 'Acesso Suspenso', impedindo-o de acessar tanto o Kontohub quanto o Kontozap."
+
+6. Fluxo de Convite e Cadastro
+Como cada empresa faz seus próprios cadastros, o fluxo funcionará assim:
+
+O Admin insere o e-mail do novo funcionário no painel.
+
+O sistema verifica se o e-mail já existe na tabela global users.
+
+Se sim: Apenas cria o vínculo na user_tenants com o tenant_id atual.
+
+Se não: Cria o usuário (ou envia convite) e depois vincula à empresa.
+
+O Admin define quais apps (Kontohub/Kontozap) o novo usuário pode ver.
+
+Verificação de Segurança (Ponto de Atenção)
+Como você é especialista em segurança, é importante garantir que o Claude implemente uma validação de hierarquia:
+
+Um Admin não pode inativar um Owner.
+
+Apenas o Owner (seu cliente principal) pode deletar a conta da empresa ou alterar dados de faturamento.
+
+Este nível de detalhamento está suficiente para começarmos a arquitetura das permissões ou gostaria de definir alguma regra específica de visualização entre o Kontohub e o Kontozap?
+
+Você disse
+O que vc considera como faturamento
+
+O Gemini disse
+Como você é Contador, o termo "faturamento" aqui ganha um peso técnico e estratégico. No contexto desse ecossistema SaaS (Software as a Service) que estamos desenhando, considero o faturamento sob três perspectivas fundamentais para que o sistema seja robusto:
+
+1. Faturamento do Seu Cliente (O Escritório de Contabilidade)
+No Kontohub, o faturamento refere-se à gestão dos honorários e serviços que o escritório presta aos clientes dele.
+
+Integração: O sistema deve permitir que o administrador do escritório controle quais clientes pagaram, gerando gatilhos de liberação ou bloqueio de documentos.
+
+Controle de "Provisionamento": Como você lida com obrigações acessórias, o "faturamento" aqui também envolve o controle de horas ou recorrências mensais de cada cliente da carteira.
+
+2. Faturamento da Sua Plataforma (SaaS Billing)
+Este é o faturamento que você recebe das empresas que assinam o Kontozap ou o Kontohub. É a gestão da assinatura (Subscription Management).
+
+Modelo de Planos: Diferenciação entre planos (ex: Básico, Pro, Enterprise).
+
+Metrificação (Usage-based): No Kontozap, o faturamento pode ser por uso (ex: R$ X por cada mil mensagens de WhatsApp enviadas ou minutos de VoIP).
+
+Status de Adimplência: Se a empresa não pagar a mensalidade para você, o sistema (via middleware) inativa o tenant inteiro, bloqueando todos os usuários daquela empresa automaticamente.
+
+3. Faturamento como Dado Fiscal (O Objeto de Trabalho)
+Considerando sua especialidade em IRPF Rural e LCDPR, o faturamento também é o dado bruto que o sistema processa.
+
+Entradas e Saídas: A captura automática de notas (NF-e, NFS-e) e a conversão disso em base de cálculo para impostos.
+
+Fluxo de Caixa: No Kontohub, o faturamento é a visão gerencial que o seu cliente (o dono do escritório) tem sobre a saúde financeira do negócio dele.
+
+Por que isso importa para o Banco de Dados?
+Para o Claude Code desenvolver isso, precisamos de uma tabela de Subscriptions e Transactions que suporte esses cenários:
+
+Tabela subscriptions:
+
+plan_id: Qual pacote a empresa assinou.
+
+billing_cycle: Mensal ou Anual.
+
+current_period_end: Data de expiração.
+
+Tabela usage_metrics (Essencial para o Kontozap):
+
+messages_sent: Contador de mensagens para cobrança excedente.
+
+voip_minutes: Contador de voz.
+
+Minha recomendação de "Custo-Benefício":
+Para o faturamento da plataforma (você cobrando seus clientes), recomendo que o Claude Code integre com uma API de pagamentos (como Stripe, Asaas ou Pagar.me).
+
+Por quê? Você delega a segurança do cartão de crédito e a geração de boletos/Pix para quem é especialista, mantendo no seu banco apenas o "status" (Pago/Inadimplente) para o Middleware liberar o acesso.
+
+Faz sentido essa visão para você, ou o seu foco de faturamento seria algo mais específico dentro da contabilidade rural?
+
+Você disse
+O faturamento e cadastrado da empresa somente o usuário Master (no caso seria eu) deve fazer
+
+No cadastro da empresa de ter um campo indicando se está ativo, inativo, inadimplente e bloqueado (nesse caso não permite o acesso de nenhum usuário)
+
+O Gemini disse
+Entendido. Essa definição é crucial para a segurança do modelo de negócio. Como você será o Provedor da Plataforma, você assume o papel de Super Admin (ou Master Global).
+
+Nesse cenário, o "faturamento" e o "status da empresa" são controles de infraestrutura, e não operacionais. O Claude Code deve tratar isso como uma camada externa ao uso cotidiano dos apps.
+
+Aqui estão os ajustes técnicos para o banco de dados e para a lógica de acesso:
+
+1. Ajuste na Tabela de Empresas (tenants)
+O campo de status deve ser um enum rigoroso para suportar as quatro condições que você citou.
+
+Tabela: tenants
+
+status: enum
+
+ativo: Acesso normal.
+
+inativo: Empresa desativada (ex: encerramento de contrato).
+
+inadimplente: Aviso de atraso (pode exibir um banner de cobrança, mas ainda permite acesso limitado ou apenas leitura).
+
+bloqueado: Corte total. O Middleware impede qualquer requisição de qualquer usuário vinculado a este ID.
+
+2. O Middleware de Segurança (A Barreira)
+O Claude Code deve configurar o Middleware do Next.js para realizar uma "verificação em cascata". Antes de entregar qualquer página do Kontohub ou Kontozap, o sistema faz o seguinte:
+
+Valida o Usuário: O usuário está logado?
+
+Valida o Status da Empresa:
+
+Se status == 'bloqueado', redireciona para uma página global de erro: "Acesso interrompido. Entre em contato com a administração central."
+
+Se status == 'inadimplente', permite o acesso, mas injeta uma variável global que o app usa para mostrar um aviso de fatura pendente.
+
+Valida o Status do Usuário: Se a empresa está ok, mas o usuário individual foi inativado pelo administrador da empresa dele, bloqueia apenas esse usuário.
+
+3. Documento Mestre: Regras para o Faturamento
+O Claude Code não deve permitir que o administrador da empresa (seu cliente) altere esses campos.
+
+Instrução Técnica para o Claude:
+"Crie uma API de administração global (Super Admin) que seja acessível apenas por usuários com a flag is_master_global = true. Somente através desta API será possível:
+
+Cadastrar novas empresas (tenants).
+
+Alterar o status financeiro da empresa (ativo, inadimplente, bloqueado).
+
+Configurar os dados de faturamento (valor da mensalidade, data de vencimento).
+O painel administrativo de cada empresa não deve sequer ter as rotas para esses campos, garantindo que o cliente não tente burlar o status de inadimplência."
+
+4. Preparação para o "Corte" Automatizado
+Se você desejar que o bloqueio por inadimplência seja automático:
+
+O sistema precisará de um Cron Job (tarefa agendada) que roda uma vez por dia.
+
+Ele verifica na tabela de billing se há faturas vencidas há mais de X dias.
+
+Se houver, ele atualiza o status na tabela tenants para bloqueado.
+
+Deseja que eu especifique os campos da tabela de faturamento (vencimento, valor, link do boleto/pix) ou prefere focar primeiro na estrutura de bloqueio de acesso?
+
+Você disse
+primeiro na estrutura de bloqueio de acesso
+
+O Gemini disse
+Para garantir que o bloqueio seja impenetrável e performático, a estrutura deve ser implementada no nível mais baixo da aplicação (Middleware e Banco de Dados). Isso impede que qualquer usuário "esperto" tente acessar uma URL interna se a empresa estiver bloqueada por você.
+
+Abaixo, detalho a lógica que o Claude Code deve seguir para construir essa barreira.
+
+1. O "Cérebro" do Bloqueio: Middleware Centralizado
+O Middleware é o código que roda antes de qualquer página ou API ser carregada. Ele funcionará como um porteiro que checa a identidade do usuário e a saúde financeira da empresa.
+
+Lógica de Verificação (Hierarquia de Segurança):
+Auth Check: O usuário tem um token válido? (Se não, vai para /login).
+
+Tenant Context: Qual empresa o usuário está tentando acessar? (Extraído do subdomínio ou do cabeçalho da requisição).
+
+Status Global da Empresa (O que você controla):
+
+Consulta a tabela tenants.
+
+Status bloqueado: Interrompe a requisição imediatamente e exibe uma tela de erro de sistema.
+
+Status inadimplente: Deixa passar, mas injeta um aviso (header ou state) para o app exibir um alerta de pagamento.
+
+Status do Usuário (O que o Admin da empresa controla):
+
+Se a empresa está ativa, verifica se aquele usuário específico está inativo.
+
+2. Ajuste no Schema (SQL) para o Bloqueio
+Precisamos de uma estrutura que separe as permissões de "negócio" das permissões de "infraestrutura".
+
+SQL
+-- Extensão para o campo de status da empresa
+CREATE TYPE tenant_status AS ENUM ('ativo', 'inativo', 'inadimplente', 'bloqueado');
+
+-- Alteração na tabela de empresas
+ALTER TABLE tenants ADD COLUMN status tenant_status DEFAULT 'ativo';
+ALTER TABLE tenants ADD COLUMN status_updated_at TIMESTAMP DEFAULT NOW();
+ALTER TABLE tenants ADD COLUMN internal_notes TEXT; -- Para você anotar o motivo do bloqueio
+3. Implementação Técnica para o Claude Code
+Para que isso seja à prova de falhas e portável para outros bancos, instrua o Claude a usar o seguinte padrão:
+
+Cache de Segurança (Otimização)
+Consultar o banco de dados em cada clique de cada usuário para saber se a empresa está bloqueada pode pesar no Neon.
+
+Recomendação: O Claude deve usar Redis (disponível na Vercel) para salvar o status do tenant por 5 ou 10 minutos. Se você bloquear uma empresa no painel Master, o Redis limpa o cache e o bloqueio é instantâneo em todos os aplicativos (Kontohub e Kontozap).
+
+Prompt Específico para o Claude Code:
+"Claude, implemente uma proteção de acesso 'Top-Down'.
+
+No Middleware, crie uma função checkTenantHealth que verifica o status da empresa na tabela tenants.
+
+Se o status for bloqueado, a aplicação deve retornar um Status Code 403 (Forbidden) e renderizar uma página estática de bloqueio que não faz nenhuma chamada ao banco de dados.
+
+Implemente essa verificação usando um padrão de Singleton para a conexão com o banco, garantindo que a troca de provedor (Neon para outro) exija apenas a mudança da string de conexão, sem afetar a lógica de bloqueio."
+
+4. O Painel Master (Sua Visão)
+Você terá uma aplicação (ou uma rota protegida dentro do Kontohub) chamada Admin Master.
+
+Visibilidade: Apenas você (usuários com is_master_global = true) enxerga a lista de todas as empresas cadastradas.
+
+Ação de Bloqueio: Ao clicar em "Bloquear", o sistema deve:
+
+Atualizar a tabela tenants para status = 'bloqueado'.
+
+Invalidar todas as sessões (cookies) ativas daquela empresa (opcional, mas recomendado para segurança máxima).
+
+Próximo Passo:
+A estrutura de bloqueio está clara? Se sim, podemos avançar para a Modelagem das Tabelas de Faturamento (onde você registrará as cobranças que geram esses bloqueios automáticos) ou prefere focar na Integração entre Kontohub e Kontozap?
+
+Você disse
+na minha opinião o faturamento, cobranças emissão de nota fiscal deve ser feito em aplicativo especifico, não aqui
+
+O Gemini disse
+Concordo plenamente com a sua visão estratégica. Como um especialista em integração, considero essa a decisão mais segura e profissional por três motivos:
+
+Segurança e Compliance: Dados bancários, emissão de notas fiscais e gateways de pagamento exigem certificações e camadas de segurança (como PCI-DSS) que não devem ser misturadas com a regra de negócio do Kontozap ou Kontohub.
+
+Foco no Produto: Seus aplicativos devem ser excelentes no que se propõem (Contabilidade e Comunicação). Delegar a cobrança para um software especializado (como Asaas, Iugu ou Stripe) ou um ERP financeiro economiza centenas de horas de desenvolvimento.
+
+Flexibilidade: Se amanhã você decidir mudar de banco ou de método de cobrança, não precisa mexer em uma linha de código dos seus aplicativos principais.
+
+Como a Integração funcionará (O Fluxo de Bloqueio)
+Já que o faturamento será externo, o seu ecossistema precisa apenas de um "Webhook" (um gatilho de comunicação). Veja como o bloqueio automático será processado:
+
+O Fluxo Lógico:
+O App de Faturamento (Ex: Asaas) detecta que um boleto venceu há 5 dias.
+
+O Webhook disparado: O App de faturamento envia um sinal para a sua API central: "A empresa X não pagou".
+
+Atualização Silenciosa: Sua API recebe esse sinal e simplesmente altera o campo status da tabela tenants para bloqueado no seu banco Neon.
+
+Bloqueio em Tempo Real: No próximo clique que qualquer usuário daquela empresa der no Kontozap ou Kontohub, o Middleware lerá o status bloqueado e impedirá o acesso.
+
+Atualização do Documento Mestre (Foco em Integração Externa)
+Para que o Claude Code desenvolva essa parte, adicione estas diretrizes ao documento:
+
+1. Endpoint de Webhook (A Porta de Entrada)
+O Claude deve criar uma rota protegida (ex: /api/v1/webhooks/billing) que aceite apenas requisições vindas do seu provedor de faturamento.
+
+Ação: Ao receber um evento de "Pagamento Atrasado", o código executa:
+UPDATE tenants SET status = 'bloqueado' WHERE external_billing_id = :id;
+
+2. Campo de Ligação (O Elo)
+Na tabela tenants, precisaremos de um campo para ligar a empresa ao seu software de faturamento:
+
+external_billing_id: varchar(255) (O ID da empresa dentro do Asaas/Stripe/ERP).
+
+3. Página de Bloqueio Amigável
+Como o faturamento é externo, quando o Middleware bloquear o usuário, a página de erro deve ser informativa:
+
+"Acesso suspenso. Identificamos uma pendência financeira. Clique aqui para visualizar sua fatura no [Nome do App de Cobrança]."
+
+Resumo da Configuração para o Claude Code
+Prompt de Integração:
+"Claude, a gestão financeira será externa. Configure um endpoint de Webhook que receba notificações de status de pagamento. Se o status recebido for 'overdue' ou 'failed', o sistema deve atualizar o status do tenant para bloqueado. Garanta que o Middleware de segurança leia este status do banco de dados (ou cache) antes de processar qualquer requisição nos apps Kontohub e Kontozap."
+
+Dessa forma, você mantém seu sistema "limpo", focado apenas nas funcionalidades que agregam valor ao seu cliente, enquanto a parte burocrática de notas e cobranças fica com quem é especialista nisso.
