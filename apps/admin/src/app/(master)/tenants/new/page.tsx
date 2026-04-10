@@ -12,6 +12,7 @@ export default function NewTenantPage() {
     name: "",
     slug: "",
     plan: "basic",
+    logoUrl: "",
     internalNotes: "",
   })
 
@@ -37,10 +38,11 @@ export default function NewTenantPage() {
     setError(null)
 
     try {
+      const payload = { ...form, logoUrl: form.logoUrl.trim() || undefined }
       const res = await fetch("/api/admin/tenants", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       })
 
       const data = (await res.json()) as { id?: string; message?: string }
@@ -123,6 +125,34 @@ export default function NewTenantPage() {
               <option value="pro">Pro</option>
               <option value="enterprise">Enterprise</option>
             </select>
+          </div>
+
+          <div>
+            <label htmlFor="logoUrl" className="block text-sm font-medium text-gray-700 mb-1">
+              URL da Logo Marca
+            </label>
+            <input
+              id="logoUrl"
+              name="logoUrl"
+              type="url"
+              value={form.logoUrl}
+              onChange={handleChange}
+              placeholder="https://exemplo.com/logo.png"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+            />
+            {form.logoUrl && (
+              <div className="mt-2 flex items-center gap-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={form.logoUrl}
+                  alt="Pré-visualização da logo"
+                  className="h-10 w-10 rounded object-contain border border-gray-200 bg-gray-50"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+                />
+                <span className="text-xs text-gray-400">Pré-visualização</span>
+              </div>
+            )}
+            <p className="mt-1 text-xs text-gray-400">URL pública da imagem (PNG, JPG ou SVG recomendado).</p>
           </div>
 
           <div>

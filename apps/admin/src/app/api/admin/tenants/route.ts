@@ -12,7 +12,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  let body: { name?: string; slug?: string; plan?: string; internalNotes?: string }
+  let body: { name?: string; slug?: string; plan?: string; logoUrl?: string; internalNotes?: string }
   try {
     body = (await request.json()) as typeof body
   } catch {
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  const { name, slug, plan, internalNotes } = body
+  const { name, slug, plan, logoUrl, internalNotes } = body
 
   if (!name?.trim() || !slug?.trim()) {
     return NextResponse.json(
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  const tenant = await TenantRepo.create({ name, slug, plan, internalNotes })
+  const tenant = await TenantRepo.create({ name, slug, plan, logoUrl, internalNotes })
 
   await AuditRepo.log({
     userId,

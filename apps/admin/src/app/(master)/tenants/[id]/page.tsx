@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation"
-import { TenantRepo, UserRepo, AuditRepo } from "@repo/db"
+import { TenantRepo, AuditRepo } from "@repo/db"
 import { requireMasterGlobal } from "@/lib/admin-guard"
 import TenantStatusForm from "./TenantStatusForm"
+import TenantLogoForm from "./TenantLogoForm"
 import Link from "next/link"
 
 const STATUS_COLORS: Record<string, string> = {
@@ -99,7 +100,11 @@ export default async function TenantDetailPage({
         </div>
 
         {/* Ações */}
-        <div>
+        <div className="space-y-5">
+          <TenantLogoForm
+            tenantId={tenant.id}
+            currentLogoUrl={tenant.logoUrl ?? null}
+          />
           <TenantStatusForm
             tenantId={tenant.id}
             currentStatus={tenant.status}
