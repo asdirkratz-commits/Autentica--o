@@ -1,12 +1,12 @@
 import { eq, and } from "drizzle-orm"
-import { db } from "../client.js"
+import { db } from "../client"
 import {
   apps,
   appSubscriptions,
   type App,
   type NewApp,
   type AppSubscription,
-} from "../schema/index.js"
+} from "../schema/index"
 
 export type CreateAppDTO = {
   name: string

@@ -1,4 +1,4 @@
-import type { TenantStatus } from "./types.js"
+import type { TenantStatus } from "./types"
 
 const TTL_DEFAULT = 300 // 5 minutes
 

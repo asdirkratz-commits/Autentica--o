@@ -1,5 +1,5 @@
 import { pgTable, uuid, varchar, text, boolean, timestamp } from "drizzle-orm/pg-core"
-import { appEnvEnum } from "./enums.js"
+import { appEnvEnum } from "./enums"
 
 export const apps = pgTable("apps", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { headers } from "next/headers"
-import { db, userTenants, users } from "@repo/db"
 import { UserRepo, InviteTokenRepo, AuditRepo } from "@repo/db"
 import { err, ErrorCode } from "@repo/auth-shared"
-import { eq, and } from "drizzle-orm"
 import { randomBytes } from "crypto"
 import { hashToken } from "@/lib/jwt"
 import type { UserPermissions } from "@repo/auth-shared"
@@ -29,23 +27,7 @@ export async function GET(): Promise<NextResponse> {
     )
   }
 
-  const rows = await db
-    .select({
-      userId: userTenants.userId,
-      role: userTenants.role,
-      status: userTenants.status,
-      permissions: userTenants.permissions,
-      invitedAt: userTenants.invitedAt,
-      activatedAt: userTenants.activatedAt,
-      email: users.email,
-      fullName: users.fullName,
-      avatarUrl: users.avatarUrl,
-      lastLoginAt: users.lastLoginAt,
-    })
-    .from(userTenants)
-    .innerJoin(users, eq(userTenants.userId, users.id))
-    .where(eq(userTenants.tenantId, tenantId))
-    .orderBy(userTenants.invitedAt)
+  const rows = await UserRepo.getTenantMembers(tenantId)
 
   return NextResponse.json({ ok: true, data: rows })
 }
@@ -92,14 +74,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       err(ErrorCode.VALIDATION_ERROR, "email é obrigatório", 400).error,
       { status: 400 }
-    )
-  }
-
-  // admin não pode convidar como owner
-  if (role === "admin" && inviteRole === "owner") {
-    return NextResponse.json(
-      err(ErrorCode.FORBIDDEN, "Admin não pode convidar com role owner", 403).error,
-      { status: 403 }
     )
   }
 

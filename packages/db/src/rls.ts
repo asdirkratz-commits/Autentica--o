@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { db } from "./client.js"
+import { db } from "./client"
 
 export async function withTenantContext<T>(
   tenantId: string,

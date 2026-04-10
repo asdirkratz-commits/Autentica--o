@@ -1,7 +1,7 @@
 import { eq, and, isNull } from "drizzle-orm"
-import { db } from "../client.js"
-import { inviteTokens, type InviteToken } from "../schema/index.js"
-import type { UserPermissions } from "../schema/user-tenants.js"
+import { db } from "../client"
+import { inviteTokens, type InviteToken } from "../schema/index"
+import type { UserPermissions } from "../schema/user-tenants"
 
 type Role = "owner" | "admin" | "user"
 

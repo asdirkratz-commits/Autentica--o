@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation"
 import { headers } from "next/headers"
-import { db, userTenants, users } from "@repo/db"
-import { eq } from "drizzle-orm"
+import { UserRepo } from "@repo/db"
 import Link from "next/link"
 import InviteUserButton from "./InviteUserButton"
 
@@ -37,22 +36,7 @@ export default async function TenantUsersPage() {
     redirect("/")
   }
 
-  const members = await db
-    .select({
-      userId: userTenants.userId,
-      role: userTenants.role,
-      status: userTenants.status,
-      invitedAt: userTenants.invitedAt,
-      activatedAt: userTenants.activatedAt,
-      permissions: userTenants.permissions,
-      email: users.email,
-      fullName: users.fullName,
-      lastLoginAt: users.lastLoginAt,
-    })
-    .from(userTenants)
-    .innerJoin(users, eq(userTenants.userId, users.id))
-    .where(eq(userTenants.tenantId, tenantId))
-    .orderBy(userTenants.invitedAt)
+  const members = await UserRepo.getTenantMembers(tenantId)
 
   const canInvite = actorRole === "owner" || actorRole === "admin"
 

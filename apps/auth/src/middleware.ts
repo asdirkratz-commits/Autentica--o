@@ -1,12 +1,14 @@
+/**
+ * Middleware Edge-compatible — apenas verifica JWT.
+ *
+ * O Edge Runtime do Next.js NÃO suporta ioredis nem postgres (TCP).
+ * As verificações que precisam de DB (status do tenant, usuário ativo)
+ * são feitas nos layouts Server Component, que rodam em Node.js runtime.
+ */
 import { type NextRequest, NextResponse } from "next/server"
 import { verifyJWT } from "@/lib/jwt"
 import { getAccessTokenFromCookies } from "@/lib/cookies"
-import { TenantRepo, UserRepo } from "@repo/db"
-import { cache } from "@/lib/redis"
 
-/**
- * Rotas públicas — sem verificação de JWT.
- */
 const PUBLIC_PREFIXES = [
   "/_next",
   "/favicon",
@@ -14,7 +16,7 @@ const PUBLIC_PREFIXES = [
   "/forgot-password",
   "/reset-password",
   "/blocked",
-  "/invite",                   // aceite de convite
+  "/invite",
   "/api/auth/login",
   "/api/auth/logout",
   "/api/auth/refresh",
@@ -23,7 +25,7 @@ const PUBLIC_PREFIXES = [
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
   "/api/auth/webhooks",
-  "/api/auth/change-password", // protegido por header x-user-id injetado
+  "/api/auth/change-password",
 ]
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
@@ -49,10 +51,11 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     return res
   }
 
+  // ── Injetar headers do usuário ────────────────────────────────────────────
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set("x-user-id", payload.sub)
-  requestHeaders.set("x-user-perms", JSON.stringify(payload.permissions))
-  requestHeaders.set("x-master-global", String(payload.isMasterGlobal))
+  requestHeaders.set("x-user-perms", JSON.stringify(payload.permissions ?? {}))
+  requestHeaders.set("x-master-global", String(payload.isMasterGlobal ?? false))
 
   // ── /select-tenant: precisa de x-user-id mas sem tenant ainda ────────────
   if (pathname.startsWith("/select-tenant")) {
@@ -67,43 +70,9 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   }
 
   requestHeaders.set("x-tenant-id", payload.tenantId)
-  requestHeaders.set("x-user-role", payload.role)
+  requestHeaders.set("x-user-role", payload.role ?? "user")
 
-  // ── 4. Status do tenant (Redis → DB como fallback) ────────────────────────
-  let tenantStatus = await cache.getTenantStatus(payload.tenantId)
-
-  if (!tenantStatus) {
-    const tenant = await TenantRepo.findById(payload.tenantId)
-    if (!tenant) {
-      return NextResponse.redirect(new URL("/login", request.url))
-    }
-    tenantStatus = tenant.status
-    await cache.setTenantStatus(payload.tenantId, tenantStatus)
-  }
-
-  if (tenantStatus === "bloqueado") {
-    return NextResponse.redirect(new URL("/blocked", request.url))
-  }
-
-  if (tenantStatus === "inativo") {
-    return new NextResponse("Conta encerrada.", {
-      status: 403,
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
-    })
-  }
-
-  requestHeaders.set("x-tenant-status", tenantStatus)
-
-  // ── 5. Usuário ativo neste tenant? ────────────────────────────────────────
-  const membership = await UserRepo.getUserRoleInTenant(payload.sub, payload.tenantId)
-  if (!membership || membership.status !== "active") {
-    return new NextResponse("Acesso suspenso nesta empresa.", {
-      status: 403,
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
-    })
-  }
-
-  // ── 6. Injetar headers e prosseguir ──────────────────────────────────────
+  // Verificações de status do tenant e usuário ficam nos layouts (Node.js runtime)
   return NextResponse.next({ request: { headers: requestHeaders } })
 }
 

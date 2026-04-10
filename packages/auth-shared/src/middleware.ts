@@ -14,7 +14,7 @@
 
 import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
-import type { JWTPayload, TenantStatus } from "./types.js"
+import type { JWTPayload, TenantStatus } from "./types"
 
 export type MiddlewareConfig = {
   /**

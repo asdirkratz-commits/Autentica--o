@@ -1,6 +1,6 @@
 import { eq, and, isNull } from "drizzle-orm"
-import { db } from "../client.js"
-import { passwordResetTokens, type PasswordResetToken } from "../schema/index.js"
+import { db } from "../client"
+import { passwordResetTokens, type PasswordResetToken } from "../schema/index"
 
 export type CreatePasswordResetDTO = {
   userId: string

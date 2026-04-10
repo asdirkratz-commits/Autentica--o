@@ -1,12 +1,18 @@
+/**
+ * Middleware Edge-compatible — verifica JWT e flag isMasterGlobal.
+ *
+ * A verificação de is_master_global é feita via claim no JWT (isMasterGlobal).
+ * A verificação definitiva contra o banco ocorre no layout Server Component
+ * (Node.js runtime), que roda após o middleware.
+ */
 import { NextRequest, NextResponse } from "next/server"
 import { jwtVerify } from "jose"
-import { UserRepo } from "@repo/db"
 
 const AUTH_URL = process.env.NEXT_PUBLIC_AUTH_URL ?? "http://localhost:3001"
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET ?? "")
 const COOKIE_NAME = "access_token"
 
-const PUBLIC_PATHS = ["/favicon.ico", "/_next"]
+const PUBLIC_PATHS = ["/favicon.ico", "/_next", "/login"]
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl
@@ -23,17 +29,18 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   // ── 2. JWT válido? ────────────────────────────────────────────────────────
   let userId: string
+  let isMasterGlobal: boolean
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET)
     userId = payload.sub ?? ""
+    isMasterGlobal = (payload as Record<string, unknown>).isMasterGlobal === true
     if (!userId) return redirectToLogin(request)
   } catch {
     return redirectToLogin(request)
   }
 
-  // ── 3. is_master_global verificado no banco (nunca no JWT) ────────────────
-  const user = await UserRepo.findById(userId)
-  if (!user || !user.isMasterGlobal) {
+  // ── 3. Checar flag master_global no JWT (verificação definitiva no layout) ─
+  if (!isMasterGlobal) {
     return new NextResponse("Acesso negado: área restrita ao master global.", {
       status: 403,
       headers: { "Content-Type": "text/plain; charset=utf-8" },
@@ -42,9 +49,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   // ── 4. Injetar headers e prosseguir ───────────────────────────────────────
   const requestHeaders = new Headers(request.headers)
-  requestHeaders.set("x-user-id", user.id)
-  requestHeaders.set("x-user-name", user.fullName)
-  requestHeaders.set("x-user-email", user.email)
+  requestHeaders.set("x-user-id", userId)
 
   return NextResponse.next({ request: { headers: requestHeaders } })
 }

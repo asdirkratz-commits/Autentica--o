@@ -2,8 +2,8 @@ import type { Metadata } from "next"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "Auth — Ecossistema Multi-App",
-  description: "Autenticação centralizada SSO",
+  title: "Konto — Autenticação",
+  description: "Acesso ao ecossistema Konto Contabilidade",
 }
 
 export default function RootLayout({

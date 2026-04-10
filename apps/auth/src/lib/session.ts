@@ -1,7 +1,7 @@
 import { RefreshTokenRepo, UserRepo } from "@repo/db"
 import { env } from "@repo/auth-shared"
 import type { SessionMeta, TokenPair, JWTPayload, Role } from "@repo/auth-shared"
-import { signJWT, hashToken } from "./jwt.js"
+import { signJWT, hashToken } from "./jwt"
 
 function parseExpiresIn(expiresIn: string): number {
   const match = /^(\d+)([smhd])$/.exec(expiresIn)
@@ -19,7 +19,7 @@ function parseExpiresIn(expiresIn: string): number {
 
 export async function createSession(
   userId: string,
-  tenantId: string,
+  tenantId: string | undefined,
   role: Role,
   isMasterGlobal: boolean,
   permissions: JWTPayload["permissions"],
@@ -27,7 +27,7 @@ export async function createSession(
 ): Promise<{ tokens: TokenPair; refreshExpiresAt: Date }> {
   const jwtPayload: Omit<JWTPayload, "iat" | "exp"> = {
     sub: userId,
-    tenantId,
+    tenantId: tenantId ?? "",
     role,
     isMasterGlobal,
     permissions,
@@ -39,14 +39,17 @@ export async function createSession(
   const refreshExpiresSeconds = parseExpiresIn(env.JWT_REFRESH_EXPIRES)
   const refreshExpiresAt = new Date(Date.now() + refreshExpiresSeconds * 1000)
 
-  await RefreshTokenRepo.create({
-    userId,
-    tenantId,
-    tokenHash: hashToken(refreshToken),
-    expiresAt: refreshExpiresAt,
-    userAgent: meta.userAgent,
-    ipAddress: meta.ipAddress,
-  })
+  // Só persiste refresh token quando há tenant válido (FK exige tenant existente no banco)
+  if (tenantId) {
+    await RefreshTokenRepo.create({
+      userId,
+      tenantId,
+      tokenHash: hashToken(refreshToken),
+      expiresAt: refreshExpiresAt,
+      userAgent: meta.userAgent,
+      ipAddress: meta.ipAddress,
+    })
+  }
 
   await UserRepo.updateLastLogin(userId)
 

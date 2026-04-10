@@ -1,13 +1,25 @@
 import { eq, and } from "drizzle-orm"
-import { db } from "../client.js"
+import { db } from "../client"
 import {
   users,
   userTenants,
   type User,
-  type NewUser,
   type UserTenant,
   type UserPermissions,
-} from "../schema/index.js"
+} from "../schema/index"
+
+export type TenantMember = {
+  userId: string
+  role: string
+  status: string
+  permissions: UserPermissions
+  invitedAt: Date
+  activatedAt: Date | null
+  email: string
+  fullName: string
+  avatarUrl: string | null
+  lastLoginAt: Date | null
+}
 
 type Role = "owner" | "admin" | "user"
 type UserStatus = "active" | "inactive" | "pending"
@@ -144,6 +156,27 @@ export const UserRepo = {
           eq(userTenants.tenantId, tenantId)
         )
       )
+  },
+
+  async getTenantMembers(tenantId: string): Promise<TenantMember[]> {
+    const rows = await db
+      .select({
+        userId: userTenants.userId,
+        role: userTenants.role,
+        status: userTenants.status,
+        permissions: userTenants.permissions,
+        invitedAt: userTenants.invitedAt,
+        activatedAt: userTenants.activatedAt,
+        email: users.email,
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl,
+        lastLoginAt: users.lastLoginAt,
+      })
+      .from(userTenants)
+      .innerJoin(users, eq(userTenants.userId, users.id))
+      .where(eq(userTenants.tenantId, tenantId))
+      .orderBy(userTenants.invitedAt)
+    return rows.map((r) => ({ ...r, permissions: (r.permissions ?? {}) as UserPermissions }))
   },
 
   async updateRole(

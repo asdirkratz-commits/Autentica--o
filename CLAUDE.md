@@ -553,6 +553,7 @@ CREATE TABLE tenants (
   slug                VARCHAR(100) UNIQUE NOT NULL,     -- ex: escritorio-silva
   status              tenant_status NOT NULL DEFAULT 'ativo',
   status_updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  logo_url            TEXT,                              -- URL da logo marca do tenant
   internal_notes      TEXT,                              -- visível só ao master_global
   external_billing_id VARCHAR(255),                      -- ID no Asaas/Stripe/etc
   plan                VARCHAR(50)  NOT NULL DEFAULT 'basic',
@@ -573,6 +574,7 @@ export const tenants = pgTable('tenants', {
   slug:               varchar('slug', { length: 100 }).notNull().unique(),
   status:             tenantStatusEnum('status').notNull().default('ativo'),
   statusUpdatedAt:    timestamp('status_updated_at', { withTimezone: true }).notNull().defaultNow(),
+  logoUrl:            text('logo_url'),
   internalNotes:      text('internal_notes'),
   externalBillingId:  varchar('external_billing_id', { length: 255 }),
   plan:               varchar('plan', { length: 50 }).notNull().default('basic'),

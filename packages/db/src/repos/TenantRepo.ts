@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm"
-import { db } from "../client.js"
-import { tenants, type Tenant, type NewTenant } from "../schema/index.js"
+import { db } from "../client"
+import { tenants, type Tenant, type NewTenant } from "../schema/index"
 
 type TenantStatus = "ativo" | "inativo" | "inadimplente" | "bloqueado"
 
@@ -13,6 +13,7 @@ export type CreateTenantDTO = {
   name: string
   slug: string
   plan?: string
+  logoUrl?: string
   internalNotes?: string
 }
 
@@ -54,6 +55,7 @@ export const TenantRepo = {
         name: data.name,
         slug: data.slug,
         plan: data.plan ?? "basic",
+        logoUrl: data.logoUrl,
         internalNotes: data.internalNotes,
       })
       .returning()
@@ -84,6 +86,13 @@ export const TenantRepo = {
     await db
       .update(tenants)
       .set({ externalBillingId: externalId, updatedAt: new Date() })
+      .where(eq(tenants.id, id))
+  },
+
+  async updateLogo(id: string, logoUrl: string | null): Promise<void> {
+    await db
+      .update(tenants)
+      .set({ logoUrl, updatedAt: new Date() })
       .where(eq(tenants.id, id))
   },
 

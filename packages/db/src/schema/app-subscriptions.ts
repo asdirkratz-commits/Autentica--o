@@ -6,8 +6,8 @@ import {
   primaryKey,
   index,
 } from "drizzle-orm/pg-core"
-import { tenants } from "./tenants.js"
-import { apps } from "./apps.js"
+import { tenants } from "./tenants"
+import { apps } from "./apps"
 
 export const appSubscriptions = pgTable(
   "app_subscriptions",

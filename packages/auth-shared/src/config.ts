@@ -25,9 +25,7 @@ export const env = {
     return process.env.NEXT_PUBLIC_AUTH_URL ?? ""
   },
   get REDIS_URL() {
-    const url = process.env.REDIS_URL
-    if (!url) throw new Error("REDIS_URL is required")
-    return url
+    return process.env.REDIS_URL ?? ""
   },
   get BILLING_WEBHOOK_SECRET() {
     const secret = process.env.BILLING_WEBHOOK_SECRET

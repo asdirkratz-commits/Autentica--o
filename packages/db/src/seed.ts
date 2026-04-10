@@ -4,8 +4,8 @@
  * Uso: pnpm --filter @repo/db seed
  */
 
-import { db } from "./client.js"
-import { apps, users, userTenants } from "./schema/index.js"
+import { db } from "./client"
+import { apps, users, userTenants } from "./schema/index"
 import { eq } from "drizzle-orm"
 import bcrypt from "bcryptjs"
 

@@ -1,6 +1,6 @@
 import { eq, and, isNull, lt } from "drizzle-orm"
-import { db } from "../client.js"
-import { refreshTokens, type RefreshToken, type NewRefreshToken } from "../schema/index.js"
+import { db } from "../client"
+import { refreshTokens, type RefreshToken, type NewRefreshToken } from "../schema/index"
 
 export type CreateRefreshTokenDTO = {
   userId: string

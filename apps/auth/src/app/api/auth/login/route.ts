@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { UserRepo, AuditRepo } from "@repo/db"
-import { ok, err, ErrorCode } from "@repo/auth-shared"
+import { err, ErrorCode } from "@repo/auth-shared"
 import { comparePassword } from "@/lib/password"
 import { createSession } from "@/lib/session"
 import { setAuthCookies } from "@/lib/cookies"
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     "unknown"
 
   // Rate limiting: 5 tentativas por IP por minuto
-  const { allowed, remaining } = await checkRateLimit(ip)
+  const { allowed } = await checkRateLimit(ip)
   if (!allowed) {
     return NextResponse.json(
       err(ErrorCode.RATE_LIMITED, "Muitas tentativas. Tente novamente em 1 minuto.", 429).error,
@@ -95,8 +95,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         })),
       })
     } else if (user.isMasterGlobal) {
-      // master_global sem tenant
-      selectedTenantId = "master"
+      // master_global sem tenant — selectedTenantId fica undefined (sem FK no banco)
+      selectedTenantId = undefined
     } else {
       return NextResponse.json(
         err(ErrorCode.FORBIDDEN, "Usuário sem empresa ativa", 403).error,
@@ -114,8 +114,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     selectedRole = ut.role as typeof selectedRole
   }
 
-  // Verificar status do tenant no cache
-  if (selectedTenantId !== "master") {
+  // Verificar status do tenant no cache (apenas se tem tenant)
+  if (selectedTenantId) {
     const tenantStatus = await cache.getTenantStatus(selectedTenantId)
     if (tenantStatus === "bloqueado" || tenantStatus === "inativo") {
       return NextResponse.json(

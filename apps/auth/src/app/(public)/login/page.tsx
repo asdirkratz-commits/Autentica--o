@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, FormEvent } from "react"
+import { Suspense, useState, FormEvent } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 
 type Tenant = { tenantId: string; role: string }
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const returnTo = searchParams.get("return_to") ?? "/"
@@ -157,5 +157,13 @@ export default function LoginPage() {
         </button>
       </form>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }

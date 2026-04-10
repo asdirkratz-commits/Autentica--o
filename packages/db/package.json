@@ -13,6 +13,8 @@
     "studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "bcryptjs": "^2.4.3",
     "drizzle-orm": "^0.30.0",
     "postgres": "^3.4.0"
   },

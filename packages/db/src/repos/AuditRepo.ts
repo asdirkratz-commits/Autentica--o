@@ -1,6 +1,6 @@
 import { eq, and, desc, gte, lte } from "drizzle-orm"
-import { db } from "../client.js"
-import { auditLogs, type AuditLog } from "../schema/index.js"
+import { db } from "../client"
+import { auditLogs, type AuditLog } from "../schema/index"
 
 export type AuditAction =
   | "tenant.created"

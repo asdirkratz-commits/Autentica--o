@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, FormEvent } from "react"
+import { Suspense, useState, FormEvent } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 
-export default function AcceptInvitePage() {
+function AcceptInviteForm() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const token = searchParams.get("token") ?? ""
@@ -53,6 +53,9 @@ export default function AcceptInvitePage() {
       setLoading(false)
     }
   }
+
+  // Supress unused warning — router is available for future redirect
+  void router
 
   if (!token) {
     return (
@@ -166,5 +169,13 @@ export default function AcceptInvitePage() {
         </button>
       </form>
     </div>
+  )
+}
+
+export default function AcceptInvitePage() {
+  return (
+    <Suspense>
+      <AcceptInviteForm />
+    </Suspense>
   )
 }

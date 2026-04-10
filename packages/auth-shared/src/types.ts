@@ -69,7 +69,7 @@ export function err(
   code: ErrorCode,
   message: string,
   statusCode = 400
-): Result<never> {
+): { ok: false; error: AppError } {
   return { ok: false, error: { code, message, statusCode } }
 }
 

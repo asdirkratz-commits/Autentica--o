@@ -10,8 +10,12 @@
     "ioredis": "^5.3.0",
     "jose": "^5.2.0"
   },
+  "peerDependencies": {
+    "next": ">=14.0.0"
+  },
   "devDependencies": {
     "@repo/config": "workspace:*",
+    "next": "^14.2.0",
     "typescript": "^5.4.0"
   }
 }

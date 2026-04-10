@@ -1,19 +1,5 @@
-import { db } from "@repo/db"
-import { users, userTenants, tenants } from "@repo/db/schema"
+import { db, users } from "@repo/db"
 import { requireMasterGlobal } from "@/lib/admin-guard"
-import { eq } from "drizzle-orm"
-
-const STATUS_COLORS: Record<string, string> = {
-  active: "text-green-700 bg-green-100",
-  pending: "text-yellow-700 bg-yellow-100",
-  inactive: "text-gray-600 bg-gray-100",
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  active: "Ativo",
-  pending: "Pendente",
-  inactive: "Inativo",
-}
 
 export default async function UsersPage() {
   await requireMasterGlobal()

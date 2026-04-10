@@ -5,18 +5,19 @@ export const baseConfig: Config = {
   theme: {
     extend: {
       colors: {
+        // Paleta Konto — teal escuro + ciano (extraído da logo)
         brand: {
-          50: "#eff6ff",
-          100: "#dbeafe",
-          200: "#bfdbfe",
-          300: "#93c5fd",
-          400: "#60a5fa",
-          500: "#3b82f6",
-          600: "#2563eb",
-          700: "#1d4ed8",
-          800: "#1e40af",
-          900: "#1e3a8a",
-          950: "#172554",
+          50:  "#e8f9fb",
+          100: "#c6f0f5",
+          200: "#8de0eb",
+          300: "#4dcfe0",
+          400: "#2bbfd3",
+          500: "#1aa8bc",
+          600: "#148fa0",
+          700: "#0f7080",
+          800: "#0d5a68",
+          900: "#0d2b35",
+          950: "#081c22",
         },
       },
       fontFamily: {

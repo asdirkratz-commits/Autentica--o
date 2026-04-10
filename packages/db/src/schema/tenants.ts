@@ -1,5 +1,5 @@
 import { pgTable, uuid, varchar, text, timestamp, index } from "drizzle-orm/pg-core"
-import { tenantStatusEnum } from "./enums.js"
+import { tenantStatusEnum } from "./enums"
 
 export const tenants = pgTable(
   "tenants",
@@ -11,6 +11,7 @@ export const tenants = pgTable(
     statusUpdatedAt: timestamp("status_updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    logoUrl: text("logo_url"),
     internalNotes: text("internal_notes"),
     externalBillingId: varchar("external_billing_id", { length: 255 }),
     plan: varchar("plan", { length: 50 }).notNull().default("basic"),

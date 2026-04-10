@@ -1,4 +1,4 @@
-import type { JWTPayload, Role, UserPermissions } from "./types.js"
+import type { JWTPayload, Role, UserPermissions } from "./types"
 import type { UserTenant } from "@repo/db"
 
 export function isMasterGlobal(payload: JWTPayload): boolean {

@@ -1,31 +1,45 @@
+import Image from "next/image"
+
 export default function PublicLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center mb-6">
-          <div className="w-12 h-12 bg-brand-600 rounded-xl flex items-center justify-center">
-            <svg
-              className="w-7 h-7 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-              />
-            </svg>
-          </div>
-        </div>
+    <div className="min-h-screen flex">
+      {/* Painel esquerdo — identidade Konto */}
+      <div
+        className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center p-12"
+        style={{ backgroundColor: "#0d2b35" }}
+      >
+        <Image
+          src="/logo.jpg"
+          alt="Konto Contabilidade"
+          width={320}
+          height={120}
+          className="object-contain"
+          priority
+        />
+        <p className="mt-8 text-center text-sm max-w-xs" style={{ color: "#4dcfe0" }}>
+          Ecossistema integrado para escritórios de contabilidade
+        </p>
       </div>
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-sm border border-gray-200 rounded-xl sm:px-10">
+
+      {/* Painel direito — formulário */}
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 bg-white">
+        {/* Logo visível só no mobile */}
+        <div className="lg:hidden mb-8">
+          <Image
+            src="/logo.jpg"
+            alt="Konto Contabilidade"
+            width={200}
+            height={75}
+            className="object-contain"
+            priority
+          />
+        </div>
+
+        <div className="w-full max-w-sm">
           {children}
         </div>
       </div>

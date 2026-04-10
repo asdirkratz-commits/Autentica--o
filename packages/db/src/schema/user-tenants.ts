@@ -6,9 +6,9 @@ import {
   primaryKey,
   index,
 } from "drizzle-orm/pg-core"
-import { userRoleEnum, userStatusEnum } from "./enums.js"
-import { users } from "./users.js"
-import { tenants } from "./tenants.js"
+import { userRoleEnum, userStatusEnum } from "./enums"
+import { users } from "./users"
+import { tenants } from "./tenants"
 
 export const userTenants = pgTable(
   "user_tenants",

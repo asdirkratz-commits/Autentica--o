@@ -63,7 +63,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   await AuditRepo.log({
     userId,
-    action: "user.password_changed",
+    action: "auth.password_reset_completed",
     targetType: "user",
     targetId: userId,
     ipAddress: request.headers.get("x-forwarded-for") ?? undefined,

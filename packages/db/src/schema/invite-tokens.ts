@@ -7,9 +7,9 @@ import {
   timestamp,
   index,
 } from "drizzle-orm/pg-core"
-import { userRoleEnum } from "./enums.js"
-import { users } from "./users.js"
-import { tenants } from "./tenants.js"
+import { userRoleEnum } from "./enums"
+import { users } from "./users"
+import { tenants } from "./tenants"
 
 export const inviteTokens = pgTable(
   "invite_tokens",
