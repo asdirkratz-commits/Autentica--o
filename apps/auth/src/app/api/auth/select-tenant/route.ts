@@ -87,7 +87,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const { tokens, refreshExpiresAt } = await createSession(
     user.id,
     tenantId,
-    userTenant.role as "owner" | "admin" | "user",
+    userTenant.role as "admin" | "user",
     user.isMasterGlobal,
     permissions,
     {

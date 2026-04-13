@@ -27,7 +27,7 @@ export async function createSession(
 ): Promise<{ tokens: TokenPair; refreshExpiresAt: Date }> {
   const jwtPayload: Omit<JWTPayload, "iat" | "exp"> = {
     sub: userId,
-    tenantId: tenantId ?? "",
+    tenantId: tenantId ?? "master",
     role,
     isMasterGlobal,
     permissions,

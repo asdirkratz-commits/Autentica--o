@@ -20,7 +20,6 @@ export const auditLogs = pgTable(
       onDelete: "set null",
     }),
     userId: uuid("user_id")
-      .notNull()
       .references(() => users.id, { onDelete: "set null" }),
     action: varchar("action", { length: 100 }).notNull(),
     targetType: varchar("target_type", { length: 50 }).notNull(),

@@ -1,4 +1,4 @@
-import { AuditRepo } from "@repo/db"
+import { AuditRepo, type AuditFilters } from "@repo/db"
 import { requireMasterGlobal } from "@/lib/admin-guard"
 
 const ACTION_COLORS: Record<string, string> = {
@@ -27,7 +27,7 @@ export default async function AuditPage({
   const offset = Math.max(0, (parseInt(page ?? "1") - 1) * 50)
 
   const logs = await AuditRepo.list({
-    action: action as Parameters<typeof AuditRepo.list>[0]["action"],
+    action: action as AuditFilters["action"],
     limit: 50,
     offset,
   })

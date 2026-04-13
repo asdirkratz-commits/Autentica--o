@@ -7,7 +7,7 @@ export const tenantStatusEnum = pgEnum("tenant_status", [
   "bloqueado",
 ])
 
-export const userRoleEnum = pgEnum("user_role", ["owner", "admin", "user"])
+export const userRoleEnum = pgEnum("user_role", ["admin", "user"])
 
 export const userStatusEnum = pgEnum("user_status", [
   "active",

@@ -17,10 +17,14 @@ export default async function SelectTenantPage({
     redirect("/login")
   }
 
+  const isMasterGlobal = hdrs.get("x-master-global") === "true"
+
   const userTenants = await UserRepo.getUserTenants(userId)
   const activeTenants = userTenants.filter((ut) => ut.status === "active")
 
+  // master_global sem tenants vai direto para o perfil (não precisa de empresa)
   if (activeTenants.length === 0) {
+    if (isMasterGlobal) redirect(returnTo ?? "/profile")
     redirect("/login")
   }
 

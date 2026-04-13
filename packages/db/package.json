@@ -7,8 +7,9 @@
   },
   "scripts": {
     "generate": "drizzle-kit generate",
-    "migrate": "tsx src/migrate.ts",
-    "migrate:prod": "NODE_ENV=production tsx src/migrate.ts",
+    "migrate": "tsx --env-file ../../.env.local src/migrate.ts",
+    "apply-pending": "tsx --env-file ../../.env.local src/apply-pending.ts",
+    "migrate:prod": "NODE_ENV=production tsx --env-file ../../.env.local src/migrate.ts",
     "seed": "tsx src/seed.ts",
     "studio": "drizzle-kit studio"
   },

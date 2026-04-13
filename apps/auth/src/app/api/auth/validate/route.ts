@@ -23,9 +23,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  // Verificar status do tenant em tempo real
+  // Verificar status do tenant em tempo real (master sem tenant usa sentinela "master")
   let tenantStatus = null
-  if (payload.tenantId !== "master") {
+  if (payload.tenantId && payload.tenantId !== "master") {
     tenantStatus = await cache.getTenantStatus(payload.tenantId)
 
     if (!tenantStatus) {

@@ -8,10 +8,7 @@ export default function PublicLayout({
   return (
     <div className="min-h-screen flex">
       {/* Painel esquerdo — identidade Konto */}
-      <div
-        className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center p-12"
-        style={{ backgroundColor: "#0d2b35" }}
-      >
+      <div className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center p-12 bg-brand-900">
         <Image
           src="/logo.jpg"
           alt="Konto Contabilidade"
@@ -20,7 +17,7 @@ export default function PublicLayout({
           className="object-contain"
           priority
         />
-        <p className="mt-8 text-center text-sm max-w-xs" style={{ color: "#4dcfe0" }}>
+        <p className="mt-8 text-center text-sm max-w-xs text-brand-300">
           Ecossistema integrado para escritórios de contabilidade
         </p>
       </div>

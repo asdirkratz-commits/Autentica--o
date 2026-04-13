@@ -4,7 +4,7 @@ import { Suspense, useState, FormEvent } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 
-type Tenant = { tenantId: string; role: string }
+type Tenant = { tenantId: string; role: string; name: string; slug: string }
 
 function LoginForm() {
   const router = useRouter()
@@ -71,9 +71,12 @@ function LoginForm() {
               disabled={loading}
               className="w-full flex items-center justify-between px-4 py-3 border border-gray-200 rounded-lg hover:border-brand-500 hover:bg-brand-50 transition-colors text-left disabled:opacity-50"
             >
-              <span className="text-sm font-medium text-gray-800 truncate">
-                {t.tenantId}
-              </span>
+              <div className="min-w-0">
+                <span className="block text-sm font-medium text-gray-800 truncate">
+                  {t.name}
+                </span>
+                <span className="block text-xs text-gray-400 truncate">{t.slug}</span>
+              </div>
               <span className="ml-2 text-xs text-gray-400 capitalize shrink-0">{t.role}</span>
             </button>
           ))}

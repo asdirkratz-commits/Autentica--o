@@ -1,75 +1,212 @@
+import type { CSSProperties } from "react"
 import { redirect } from "next/navigation"
-import { cookies, headers } from "next/headers"
+import { headers } from "next/headers"
+import { UserRepo, TenantRepo } from "@repo/db"
 import Link from "next/link"
+import SidebarActiveLink from "./SidebarActiveLink"
 
 export default async function ProtectedLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const cookieStore = await cookies()
-  const hasToken = cookieStore.has("access_token")
-
-  if (!hasToken) {
-    redirect("/login")
-  }
-
-  const hdrs = await headers()
+  const hdrs = headers()
+  const userId = hdrs.get("x-user-id")
   const role = hdrs.get("x-user-role")
-  const tenantStatus = hdrs.get("x-tenant-status")
-  const canManageUsers = role === "owner" || role === "admin"
+  const tenantId = hdrs.get("x-tenant-id")
+  const isMasterGlobal = hdrs.get("x-master-global") === "true"
+
+  // master_global sem tenant no header é válido — só redireciona se não é master
+  if (!userId) redirect("/login")
+  if (!tenantId && !isMasterGlobal) redirect("/select-tenant")
+
+  const user = await UserRepo.findById(userId)
+  if (!user) redirect("/login")
+
+  // Tema visual do tenant
+  const tenant = tenantId ? await TenantRepo.findById(tenantId) : null
+  type ThemeJson = { primary?: string; secondary?: string; accent?: string }
+  let themeJson: ThemeJson | null = null
+  if (tenant?.theme) {
+    try { themeJson = JSON.parse(tenant.theme) as ThemeJson } catch { /* usa defaults */ }
+  }
+  // CSS vars que sobrescrevem os padrões de :root para refletir a identidade do tenant.
+  // brand-600 = cor principal (botões, link ativo)
+  // brand-700 = hover / variante mais escura
+  // brand-500 = destaque / focus ring
+  const themeStyle = themeJson
+    ? ({
+        "--k-brand-600": themeJson.primary,
+        "--k-brand-700": themeJson.secondary ?? themeJson.primary,
+        "--k-brand-500": themeJson.accent ?? themeJson.secondary ?? themeJson.primary,
+        "--k-color-primary":   themeJson.primary,
+        "--k-color-secondary": themeJson.secondary ?? themeJson.primary,
+        "--k-color-highlight": themeJson.accent ?? themeJson.secondary,
+      } as CSSProperties)
+    : undefined
+
+  const canManageUsers = role === "admin" || isMasterGlobal
+  const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL ?? "http://localhost:3002"
+
+  // Itens visíveis para todos os usuários autenticados
+  const baseNavItems = [
+    {
+      href: "/dashboard",
+      label: "Início",
+      icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6",
+    },
+    {
+      href: "/profile",
+      label: "Perfil",
+      icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z",
+    },
+  ]
+
+  // Itens exclusivos de owner/admin
+  const adminNavItems =
+    canManageUsers && tenantId
+      ? [
+          {
+            href: "/users",
+            label: "Usuários",
+            icon: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z",
+          },
+        ]
+      : []
+
+  const navItems = [...baseNavItems, ...adminNavItems]
+
+  // Label de role para exibição
+  const roleLabels: Record<string, string> = {
+    admin: "Administrador",
+    user: "Usuário",
+  }
+  const roleLabel = isMasterGlobal ? "Master Global" : (role ? (roleLabels[role] ?? role) : "Usuário")
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {tenantStatus === "inadimplente" && (
-        <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2.5 flex items-center justify-between gap-4">
+    <div className="flex h-screen bg-gray-100" style={themeStyle}>
+      {/* Sidebar */}
+      <aside className="w-64 bg-gray-900 flex flex-col shrink-0">
+        {/* Header da sidebar */}
+        <div className="px-6 py-5 border-b border-gray-700">
           <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-yellow-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <p className="text-sm text-yellow-800">
-              <span className="font-semibold">Pagamento pendente.</span>{" "}
-              Regularize sua conta para evitar a suspensão do serviço.
-            </p>
-          </div>
-        </div>
-      )}
-
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center">
+            {tenant?.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={tenant.logoUrl}
+                alt={tenant.name}
+                className="w-8 h-8 object-contain rounded-lg shrink-0"
+              />
+            ) : (
+              <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center shrink-0">
                 <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </div>
-              <span className="font-semibold text-gray-900 text-sm">Auth</span>
-            </Link>
-
-            {canManageUsers && (
-              <Link href="/users" className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
-                Usuários
-              </Link>
             )}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Link href="/profile" className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
-              Perfil
-            </Link>
-            <form action="/api/auth/logout" method="POST">
-              <button type="submit" className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
-                Sair
-              </button>
-            </form>
+            <div className="min-w-0">
+              <p className="text-white font-semibold text-sm truncate">
+                {tenant?.name ?? "Portal"}
+              </p>
+              <p className="text-gray-400 text-xs truncate">{roleLabel}</p>
+            </div>
           </div>
         </div>
-      </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {children}
-      </main>
+        {/* Navegação principal */}
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <SidebarActiveLink key={item.href} href={item.href} icon={item.icon}>
+              {item.label}
+            </SidebarActiveLink>
+          ))}
+
+          {/* Seção exclusiva do Master Global */}
+          {isMasterGlobal && (
+            <div className="pt-3 mt-3 border-t border-gray-700">
+              <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                Administração
+              </p>
+              <a
+                href={adminUrl}
+                className="flex items-center gap-3 px-3 py-2 rounded-lg text-amber-400 hover:bg-gray-800 hover:text-amber-300 transition-colors text-sm"
+              >
+                <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                Painel Admin
+              </a>
+
+              {tenantId && (
+                <Link
+                  href="/select-tenant"
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm"
+                >
+                  <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                  </svg>
+                  Trocar empresa
+                </Link>
+              )}
+            </div>
+          )}
+
+          {/* Trocar empresa para usuários comuns com múltiplos tenants */}
+          {!isMasterGlobal && tenantId && (
+            <div className="pt-3 mt-3 border-t border-gray-700">
+              <Link
+                href="/select-tenant"
+                className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm"
+              >
+                <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+                Trocar empresa
+              </Link>
+            </div>
+          )}
+        </nav>
+
+        {/* Rodapé com usuário + logout */}
+        <div className="px-4 py-4 border-t border-gray-700">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center shrink-0">
+              {user.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={user.avatarUrl}
+                  alt={user.fullName}
+                  className="w-8 h-8 rounded-full object-cover"
+                />
+              ) : (
+                <span className="text-xs font-medium text-gray-300 uppercase">
+                  {user.fullName.charAt(0)}
+                </span>
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-white truncate">{user.fullName}</p>
+              <p className="text-xs text-gray-400 truncate">{user.email}</p>
+            </div>
+          </div>
+
+          <form action="/api/auth/logout" method="POST">
+            <button
+              type="submit"
+              className="w-full text-xs text-gray-400 hover:text-white transition-colors text-left px-1 py-0.5"
+            >
+              Sair
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      {/* Conteúdo principal */}
+      <div className="flex-1 overflow-auto">
+        <main className="p-8">
+          {children}
+        </main>
+      </div>
     </div>
   )
 }

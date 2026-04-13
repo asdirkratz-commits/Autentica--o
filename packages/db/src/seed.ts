@@ -45,10 +45,51 @@ const INITIAL_APPS = [
   },
 ] as const
 
+// Módulos do KontoHub — apps filhos registrados como sub-módulos.
+// baseUrl final = kontohub.baseUrl + path (resolvido no seed após inserir o pai).
+const KONTOHUB_MODULES = [
+  {
+    name: "kontohub_cadastros",
+    displayName: "Cadastros",
+    description: "Clientes PF/PJ, credenciais de portais e certificados digitais",
+    path: "/cadastros",
+  },
+  {
+    name: "kontohub_ir_bolsa",
+    displayName: "IR Bolsa de Valores",
+    description: "Apuração de IRPF sobre operações em bolsa de valores",
+    path: "/ir-bolsa",
+  },
+  {
+    name: "kontohub_lcdpr",
+    displayName: "LCDPR",
+    description: "Caixa da Atividade Rural — lançamentos do livro caixa do produtor rural",
+    path: "/lcdpr",
+  },
+  {
+    name: "kontohub_nfe",
+    displayName: "Busca NFe",
+    description: "Busca de XML de NFe, CTe, NFCe em portais nacionais e estaduais",
+    path: "/nfe",
+  },
+  {
+    name: "kontohub_itr",
+    displayName: "ITR",
+    description: "Declaração do Imposto sobre a Propriedade Territorial Rural",
+    path: "/itr",
+  },
+  {
+    name: "kontohub_dirpf",
+    displayName: "DIRPF",
+    description: "Recebimento de documentos e geração da declaração de IRPF",
+    path: "/dirpf",
+  },
+] as const
+
 async function seed() {
   console.log("🌱 Iniciando seed...\n")
 
-  // ── 1. Apps ─────────────────────────────────────────────────────────────────
+  // ── 1. Apps raiz ─────────────────────────────────────────────────────────────
   console.log("📦 Inserindo apps...")
   for (const appData of INITIAL_APPS) {
     const existing = await db
@@ -71,7 +112,42 @@ async function seed() {
     console.log(`  ✅ ${appData.name} criado`)
   }
 
-  // ── 2. Usuário master_global ─────────────────────────────────────────────────
+  // ── 2. Módulos filhos do KontoHub ────────────────────────────────────────────
+  console.log("\n📦 Inserindo módulos do KontoHub...")
+  const kontohubRows = await db
+    .select({ id: apps.id, baseUrl: apps.baseUrl })
+    .from(apps)
+    .where(eq(apps.name, "kontohub"))
+    .limit(1)
+  const kontohub = kontohubRows[0]
+
+  if (!kontohub) {
+    console.warn("  ⚠️  App kontohub não encontrado — pulando módulos filhos")
+  } else {
+    for (const mod of KONTOHUB_MODULES) {
+      const existing = await db
+        .select({ id: apps.id })
+        .from(apps)
+        .where(eq(apps.name, mod.name))
+        .limit(1)
+
+      if (existing.length > 0) {
+        console.log(`  ⏭  ${mod.name} já existe — ignorando`)
+        continue
+      }
+
+      await db.insert(apps).values({
+        name: mod.name,
+        displayName: mod.displayName,
+        description: mod.description,
+        baseUrl: `${kontohub.baseUrl}${mod.path}`,
+        parentAppId: kontohub.id,
+      })
+      console.log(`  ✅ ${mod.name} criado`)
+    }
+  }
+
+  // ── 3. Usuário master_global ─────────────────────────────────────────────────
   console.log("\n👤 Criando usuário master_global...")
 
   const existingMaster = await db

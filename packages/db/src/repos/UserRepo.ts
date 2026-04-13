@@ -21,7 +21,7 @@ export type TenantMember = {
   lastLoginAt: Date | null
 }
 
-type Role = "owner" | "admin" | "user"
+type Role = "admin" | "user"
 type UserStatus = "active" | "inactive" | "pending"
 
 export type CreateUserDTO = {

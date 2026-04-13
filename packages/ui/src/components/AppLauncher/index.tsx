@@ -9,13 +9,51 @@ type AppEntry = {
   displayName: string
   baseUrl: string
   iconUrl?: string | null
+  parentAppId?: string | null
   active: boolean
 }
 
+type AppGroup = {
+  parent: AppEntry
+  children: AppEntry[]
+}
+
 type Props = {
-  /** URL do endpoint que retorna os apps do tenant (/api/tenant/apps) */
+  /** URL do endpoint que retorna os apps do usuário (/api/tenant/apps) */
   appsEndpoint?: string
   className?: string
+}
+
+/**
+ * Agrupa apps pelo parentAppId.
+ * Apps sem pai formam grupos de um só elemento (sem filhos).
+ * Apps filhos são agrupados sob o app pai correspondente.
+ * Apps filhos cujo pai não está na lista (não assinado) ficam como raiz.
+ */
+function groupApps(apps: AppEntry[]): AppGroup[] {
+  const byId = new Map(apps.map((a) => [a.appId, a]))
+  const groups: AppGroup[] = []
+  const addedAsChild = new Set<string>()
+
+  // Primeiro: criar grupos para apps que são pai de algum outro
+  for (const app of apps) {
+    if (!app.parentAppId) {
+      const children = apps.filter(
+        (a) => a.parentAppId === app.appId
+      )
+      children.forEach((c) => addedAsChild.add(c.appId))
+      groups.push({ parent: app, children })
+    }
+  }
+
+  // Segundo: apps filhos cujo pai não aparece na lista ficam como raiz
+  for (const app of apps) {
+    if (app.parentAppId && !addedAsChild.has(app.appId) && !byId.has(app.parentAppId)) {
+      groups.push({ parent: app, children: [] })
+    }
+  }
+
+  return groups
 }
 
 export function AppLauncher({ appsEndpoint = "/api/tenant/apps", className = "" }: Props) {
@@ -31,7 +69,7 @@ export function AppLauncher({ appsEndpoint = "/api/tenant/apps", className = "" 
     void fetch(appsEndpoint)
       .then((r) => r.json())
       .then((data: { data?: AppEntry[] }) => {
-        setApps(data.data ?? [])
+        setApps((data.data ?? []).filter((a) => a.active))
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -48,7 +86,7 @@ export function AppLauncher({ appsEndpoint = "/api/tenant/apps", className = "" 
     return () => document.removeEventListener("mousedown", handleClick)
   }, [])
 
-  const activeApps = apps.filter((a) => a.active)
+  const groups = groupApps(apps)
 
   return (
     <div ref={ref} className={`relative ${className}`}>
@@ -64,7 +102,7 @@ export function AppLauncher({ appsEndpoint = "/api/tenant/apps", className = "" 
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 w-64 bg-white border border-gray-200 rounded-xl shadow-lg p-3 z-50">
+        <div className="absolute right-0 top-10 w-72 bg-white border border-gray-200 rounded-xl shadow-lg p-3 z-50">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 mb-2">
             Apps disponíveis
           </p>
@@ -75,23 +113,41 @@ export function AppLauncher({ appsEndpoint = "/api/tenant/apps", className = "" 
             </div>
           )}
 
-          {!loading && activeApps.length === 0 && (
+          {!loading && groups.length === 0 && (
             <p className="text-xs text-gray-400 text-center py-4">
               Nenhum app disponível.
             </p>
           )}
 
-          {!loading && activeApps.length > 0 && (
-            <div className="grid grid-cols-3 gap-1">
-              {activeApps.map((app) => (
-                <AppIcon
-                  key={app.appId}
-                  name={app.name}
-                  displayName={app.displayName}
-                  baseUrl={app.baseUrl}
-                  iconUrl={app.iconUrl}
-                  active={app.active}
-                />
+          {!loading && groups.length > 0 && (
+            <div className="space-y-3">
+              {groups.map((group) => (
+                <div key={group.parent.appId}>
+                  {/* App pai — sempre exibido como link */}
+                  <AppIcon
+                    name={group.parent.name}
+                    displayName={group.parent.displayName}
+                    baseUrl={group.parent.baseUrl}
+                    iconUrl={group.parent.iconUrl}
+                    active={group.parent.active}
+                  />
+
+                  {/* Módulos filhos — exibidos em grid abaixo do pai */}
+                  {group.children.length > 0 && (
+                    <div className="mt-1 ml-3 pl-3 border-l border-gray-100 grid grid-cols-2 gap-1">
+                      {group.children.map((child) => (
+                        <AppIcon
+                          key={child.appId}
+                          name={child.name}
+                          displayName={child.displayName}
+                          baseUrl={child.baseUrl}
+                          iconUrl={child.iconUrl}
+                          active={child.active}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           )}

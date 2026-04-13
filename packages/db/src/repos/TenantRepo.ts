@@ -9,13 +9,25 @@ export type TenantFilters = {
   plan?: string
 }
 
+export type TenantAddress = {
+  zipCode?: string
+  street?: string
+  streetNumber?: string
+  complement?: string
+  district?: string
+  city?: string
+  state?: string
+  country?: string
+}
+
 export type CreateTenantDTO = {
   name: string
   slug: string
   plan?: string
   logoUrl?: string
   internalNotes?: string
-}
+  cnpj?: string
+} & TenantAddress
 
 export const TenantRepo = {
   async findById(id: string): Promise<Tenant | null> {
@@ -57,11 +69,48 @@ export const TenantRepo = {
         plan: data.plan ?? "basic",
         logoUrl: data.logoUrl,
         internalNotes: data.internalNotes,
+        cnpj: data.cnpj,
+        zipCode: data.zipCode,
+        street: data.street,
+        streetNumber: data.streetNumber,
+        complement: data.complement,
+        district: data.district,
+        city: data.city,
+        state: data.state,
+        country: data.country ?? "BR",
       })
       .returning()
     const row = rows[0]
     if (!row) throw new Error("Failed to create tenant")
     return row
+  },
+
+  async updateAddress(id: string, address: TenantAddress & { cnpj?: string }): Promise<void> {
+    await db
+      .update(tenants)
+      .set({ ...address, updatedAt: new Date() })
+      .where(eq(tenants.id, id))
+  },
+
+  async updateCnpj(id: string, cnpj: string): Promise<void> {
+    await db
+      .update(tenants)
+      .set({ cnpj, updatedAt: new Date() })
+      .where(eq(tenants.id, id))
+  },
+
+  async updateTheme(id: string, themeJson: string): Promise<void> {
+    await db
+      .update(tenants)
+      .set({ theme: themeJson, updatedAt: new Date() })
+      .where(eq(tenants.id, id))
+  },
+
+  async updateAiConfig(id: string, aiConfigEncrypted: string): Promise<void> {
+    await db
+      .update(tenants)
+      .set({ aiConfig: aiConfigEncrypted, updatedAt: new Date() })
+      .where(eq(tenants.id, id))
   },
 
   async updateStatus(
@@ -101,6 +150,20 @@ export const TenantRepo = {
       .select()
       .from(tenants)
       .where(eq(tenants.externalBillingId, externalId))
+      .limit(1)
+    return rows[0] ?? null
+  },
+
+  async findByCnpj(cnpjDigitsOnly: string): Promise<Tenant | null> {
+    // Busca tanto no formato armazenado (XX.XXX.XXX/XXXX-XX) quanto só dígitos
+    const formatted = cnpjDigitsOnly.replace(
+      /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
+      "$1.$2.$3/$4-$5"
+    )
+    const rows = await db
+      .select()
+      .from(tenants)
+      .where(eq(tenants.cnpj, formatted))
       .limit(1)
     return rows[0] ?? null
   },

@@ -39,8 +39,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return response
   }
 
-  // Verificar status do tenant
-  if (payload.tenantId !== "master") {
+  // Verificar status do tenant (master sem tenant usa sentinela "master")
+  if (payload.tenantId && payload.tenantId !== "master") {
     const tenantStatus = await cache.getTenantStatus(payload.tenantId)
     if (tenantStatus === "bloqueado" || tenantStatus === "inativo") {
       await revokeSession(refreshToken)

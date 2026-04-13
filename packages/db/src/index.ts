@@ -5,6 +5,7 @@ export * from "./schema/index"
 
 export { TenantRepo } from "./repos/TenantRepo"
 export { UserRepo } from "./repos/UserRepo"
+export { UserAppAccessRepo } from "./repos/UserAppAccessRepo"
 export { RefreshTokenRepo } from "./repos/RefreshTokenRepo"
 export { AppRepo } from "./repos/AppRepo"
 export { AuditRepo } from "./repos/AuditRepo"

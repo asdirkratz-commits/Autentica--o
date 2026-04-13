@@ -8,4 +8,32 @@
   * {
     box-sizing: border-box;
   }
+
+  :root {
+    /* ── Brand palette — padrões Konto Contabilidade ──────────────────────────
+     * Sobrescritos por tenant via inline style no layout protegido.
+     * A área pública usa estes valores diretamente. */
+    --k-brand-50:  #e8f9fb;
+    --k-brand-100: #c6f0f5;
+    --k-brand-200: #8de0eb;
+    --k-brand-300: #4dcfe0;
+    --k-brand-400: #2bbfd3;
+    --k-brand-500: #1aa8bc;
+    --k-brand-600: #148fa0;
+    --k-brand-700: #0f7080;
+    --k-brand-800: #0d5a68;
+    --k-brand-900: #0d2b35;
+    --k-brand-950: #081c22;
+
+    /* ── Design System tokens ─────────────────────────────────────────────── */
+    --k-color-primary:   #148fa0;
+    --k-color-secondary: #1aa8bc;
+    --k-color-highlight: #2bbfd3;
+
+    /* ── System colors (fixos — nunca sobrescritos por tenant) ─────────────── */
+    --k-surface:  #f0f8fa;
+    --k-success:  #1d9e75;
+    --k-warning:  #ef9f27;
+    --k-danger:   #d62828;
+  }
 }

@@ -12,7 +12,6 @@ type Tenant = {
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  owner: "Proprietário",
   admin: "Administrador",
   user: "Usuário",
 }

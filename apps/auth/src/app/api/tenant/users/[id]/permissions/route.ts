@@ -21,7 +21,7 @@ export async function PATCH(
     )
   }
 
-  if (actorRole !== "owner" && actorRole !== "admin") {
+  if (actorRole !== "admin") {
     return NextResponse.json(
       err(ErrorCode.FORBIDDEN, "Acesso negado", 403).error,
       { status: 403 }
@@ -57,7 +57,7 @@ export async function PATCH(
     )
   }
 
-  const ROLE_LEVEL: Record<string, number> = { owner: 2, admin: 1, user: 0 }
+  const ROLE_LEVEL: Record<string, number> = { admin: 1, user: 0 }
   const actorLevel = ROLE_LEVEL[actorRole] ?? 0
   const targetLevel = ROLE_LEVEL[targetMembership.role] ?? 0
 

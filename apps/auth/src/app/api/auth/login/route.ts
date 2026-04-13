@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { UserRepo, AuditRepo } from "@repo/db"
+import { UserRepo, AuditRepo, TenantRepo } from "@repo/db"
 import { err, ErrorCode } from "@repo/auth-shared"
 import { comparePassword } from "@/lib/password"
 import { createSession } from "@/lib/session"
@@ -45,7 +45,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (!user) {
     await AuditRepo.log({
-      userId: "00000000-0000-0000-0000-000000000000",
       action: "auth.login_failed",
       targetType: "user",
       targetId: email,
@@ -79,20 +78,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const activeTenants = userTenants.filter((ut) => ut.status === "active")
 
   let selectedTenantId = tenantId
-  let selectedRole: "owner" | "admin" | "user" = "user"
+  let selectedRole: "admin" | "user" = "user"
 
   if (!selectedTenantId) {
     if (activeTenants.length === 1 && activeTenants[0]) {
       selectedTenantId = activeTenants[0].tenantId
       selectedRole = activeTenants[0].role as typeof selectedRole
     } else if (activeTenants.length > 1) {
-      // Múltiplos tenants — retornar lista para seleção
+      // Múltiplos tenants — buscar nomes e retornar lista para seleção
+      const tenantDetails = await Promise.all(
+        activeTenants.map(async (ut) => {
+          const tenant = await TenantRepo.findById(ut.tenantId)
+          return {
+            tenantId: ut.tenantId,
+            role: ut.role,
+            name: tenant?.name ?? ut.tenantId,
+            slug: tenant?.slug ?? "",
+          }
+        })
+      )
       return NextResponse.json({
         requiresTenantSelection: true,
-        tenants: activeTenants.map((ut) => ({
-          tenantId: ut.tenantId,
-          role: ut.role,
-        })),
+        tenants: tenantDetails,
       })
     } else if (user.isMasterGlobal) {
       // master_global sem tenant — selectedTenantId fica undefined (sem FK no banco)
@@ -141,7 +148,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   )
 
   await AuditRepo.log({
-    tenantId: selectedTenantId === "master" ? undefined : selectedTenantId,
+    tenantId: !selectedTenantId || selectedTenantId === "master" ? undefined : selectedTenantId,
     userId: user.id,
     action: "auth.login",
     targetType: "session",

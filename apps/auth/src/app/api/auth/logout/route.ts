@@ -23,7 +23,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (payload) {
     await AuditRepo.log({
-      tenantId: payload.tenantId === "master" ? undefined : payload.tenantId,
+      tenantId: !payload.tenantId || payload.tenantId === "master" ? undefined : payload.tenantId,
       userId: payload.sub,
       action: "auth.logout",
       targetType: "session",

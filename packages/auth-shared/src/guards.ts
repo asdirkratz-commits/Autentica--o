@@ -15,12 +15,11 @@ export function canAccess(
   permission: keyof UserPermissions
 ): boolean {
   if (isMasterGlobal(payload)) return true
-  if (payload.role === "owner") return true
+  if (payload.role === "admin") return true
   return payload.permissions[permission] === true
 }
 
 const ROLE_HIERARCHY: Record<Role, number> = {
-  owner: 2,
   admin: 1,
   user: 0,
 }

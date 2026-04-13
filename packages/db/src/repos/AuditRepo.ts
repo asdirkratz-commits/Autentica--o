@@ -6,6 +6,9 @@ export type AuditAction =
   | "tenant.created"
   | "tenant.status_changed"
   | "tenant.blocked"
+  | "tenant.logo_updated"
+  | "tenant.theme_updated"
+  | "tenant.ai_config_updated"
   | "user.created"
   | "user.invited"
   | "user.activated"
@@ -28,7 +31,7 @@ export type AuditTargetType = "user" | "tenant" | "app" | "session" | "webhook"
 
 export type AuditEntry = {
   tenantId?: string
-  userId: string
+  userId?: string
   action: AuditAction
   targetType: AuditTargetType
   targetId: string

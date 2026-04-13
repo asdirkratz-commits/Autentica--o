@@ -37,12 +37,25 @@ export type MiddlewareConfig = {
   ): Promise<"active" | "inactive" | "pending" | null>
 
   /**
-   * Verifica se o tenant tem assinatura ativa para o app atual.
+   * 7a — Verifica se o tenant tem assinatura ativa para o app atual.
    */
   hasAppAccess(tenantId: string, appName: string): Promise<boolean>
 
   /**
-   * Nome do app atual (ex: "kontohub", "admin").
+   * 7b — Retorna os appIds liberados para o usuário no tenant.
+   * Usado apenas quando role === "user".
+   * (Redis primeiro, banco como fallback)
+   */
+  getUserAppAccess(userId: string, tenantId: string): Promise<string[]>
+
+  /**
+   * Resolve o appId a partir do appName para comparação com user_app_access.
+   * Necessário porque user_app_access armazena appId (UUID), não appName.
+   */
+  resolveAppId(appName: string): Promise<string | null>
+
+  /**
+   * Nome do app atual (ex: "kontohub_ir_bolsa", "kontohub_lcdpr").
    */
   appName: string
 
@@ -122,17 +135,33 @@ export function createMiddleware(config: MiddlewareConfig) {
       })
     }
 
-    // ── 7. App disponível para o tenant? ──────────────────────────────────────
+    // ── 7a. App disponível para o tenant? ─────────────────────────────────────
     if (config.appName !== "auth" && config.appName !== "admin") {
       const hasAccess = await config.hasAppAccess(
         payload.tenantId,
         config.appName
       )
       if (!hasAccess) {
-        return new NextResponse("App não disponível para este plano", {
+        return new NextResponse("App não disponível para esta empresa", {
           status: 403,
           headers: { "Content-Type": "text/plain; charset=utf-8" },
         })
+      }
+
+      // ── 7b. Usuário tem acesso individual a este app? ────────────────────────
+      // admin e master_global têm acesso a todos os apps do tenant — pular 7b.
+      // Apenas role "user" é verificado na tabela user_app_access.
+      if (payload.role === "user" && !payload.isMasterGlobal) {
+        const appId = await config.resolveAppId(config.appName)
+        if (appId) {
+          const userAppIds = await config.getUserAppAccess(payload.sub, payload.tenantId)
+          if (!userAppIds.includes(appId)) {
+            return new NextResponse("Você não tem acesso a este app", {
+              status: 403,
+              headers: { "Content-Type": "text/plain; charset=utf-8" },
+            })
+          }
+        }
       }
     }
 

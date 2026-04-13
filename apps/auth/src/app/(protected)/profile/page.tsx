@@ -1,49 +1,26 @@
-"use client"
+import { headers } from "next/headers"
+import { redirect } from "next/navigation"
+import { UserRepo } from "@repo/db"
+import ChangePasswordForm from "./ChangePasswordForm"
 
-import { useState, FormEvent } from "react"
+export default async function ProfilePage() {
+  const hdrs = headers()
+  const userId = hdrs.get("x-user-id")
+  const isMasterGlobal = hdrs.get("x-master-global") === "true"
+  const role = hdrs.get("x-user-role")
+  const tenantId = hdrs.get("x-tenant-id")
 
-export default function ProfilePage() {
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  if (!userId) redirect("/login")
 
-  async function handlePasswordChange(e: FormEvent) {
-    e.preventDefault()
-    setMessage(null)
+  const user = await UserRepo.findById(userId)
+  if (!user) redirect("/login")
 
-    if (newPassword !== confirmPassword) {
-      setMessage({ type: "error", text: "As senhas não coincidem." })
-      return
-    }
-
-    setLoading(true)
-
-    try {
-      const res = await fetch("/api/auth/change-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPassword, newPassword }),
-      })
-
-      const data = (await res.json()) as { message?: string }
-
-      if (!res.ok) {
-        setMessage({ type: "error", text: data.message ?? "Erro ao alterar senha." })
-        return
-      }
-
-      setMessage({ type: "success", text: "Senha alterada com sucesso." })
-      setCurrentPassword("")
-      setNewPassword("")
-      setConfirmPassword("")
-    } catch {
-      setMessage({ type: "error", text: "Erro de conexão. Tente novamente." })
-    } finally {
-      setLoading(false)
-    }
+  const roleLabels: Record<string, string> = {
+    owner: "Proprietário",
+    admin: "Administrador",
+    user: "Usuário",
   }
+  const roleLabel = isMasterGlobal ? "Master Global" : (role ? (roleLabels[role] ?? role) : "Usuário")
 
   return (
     <div className="max-w-lg">
@@ -52,77 +29,53 @@ export default function ProfilePage() {
         <p className="text-sm text-gray-500 mt-1">Gerencie as configurações da sua conta</p>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h2 className="text-sm font-semibold text-gray-700 mb-5">Alterar senha</h2>
-
-        <form onSubmit={(e) => void handlePasswordChange(e)} className="space-y-4">
-          <div>
-            <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-1">
-              Senha atual
-            </label>
-            <input
-              id="currentPassword"
-              type="password"
-              required
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-            />
+      {/* Card de dados do usuário */}
+      <div className="bg-white border border-gray-200 rounded-xl p-6 mb-5">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 bg-brand-100 rounded-full flex items-center justify-center shrink-0">
+            {user.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={user.avatarUrl} alt={user.fullName} className="w-14 h-14 rounded-full object-cover" />
+            ) : (
+              <span className="text-xl font-bold text-brand-700 uppercase">
+                {user.fullName.charAt(0)}
+              </span>
+            )}
           </div>
-
-          <div>
-            <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
-              Nova senha
-            </label>
-            <input
-              id="newPassword"
-              type="password"
-              required
-              minLength={8}
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-            />
-            <p className="mt-1 text-xs text-gray-400">
-              Mínimo 8 caracteres, 1 maiúscula, 1 número e 1 símbolo.
-            </p>
+          <div className="min-w-0">
+            <p className="text-base font-semibold text-gray-900 truncate">{user.fullName}</p>
+            <p className="text-sm text-gray-500 truncate">{user.email}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                isMasterGlobal
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-gray-100 text-gray-600"
+              }`}>
+                {roleLabel}
+              </span>
+              {tenantId && (
+                <span className="text-xs text-gray-400 truncate font-mono">{tenantId.slice(0, 8)}…</span>
+              )}
+            </div>
           </div>
+        </div>
 
-          <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-              Confirmar nova senha
-            </label>
-            <input
-              id="confirmPassword"
-              type="password"
-              required
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-            />
+        <dl className="mt-5 space-y-2 border-t border-gray-100 pt-4">
+          <div className="flex justify-between text-sm">
+            <dt className="text-gray-500">Membro desde</dt>
+            <dd className="text-gray-700">{new Date(user.createdAt).toLocaleDateString("pt-BR")}</dd>
           </div>
-
-          {message && (
-            <div
-              className={`rounded-lg px-3 py-2 text-sm border ${
-                message.type === "success"
-                  ? "bg-green-50 border-green-200 text-green-700"
-                  : "bg-red-50 border-red-200 text-red-700"
-              }`}
-            >
-              {message.text}
+          {user.lastLoginAt && (
+            <div className="flex justify-between text-sm">
+              <dt className="text-gray-500">Último acesso</dt>
+              <dd className="text-gray-700">{new Date(user.lastLoginAt).toLocaleString("pt-BR")}</dd>
             </div>
           )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 px-4 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? "Salvando..." : "Alterar senha"}
-          </button>
-        </form>
+        </dl>
       </div>
+
+      {/* Form de alterar senha (Client Component) */}
+      <ChangePasswordForm />
     </div>
   )
 }

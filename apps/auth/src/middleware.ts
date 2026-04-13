@@ -63,7 +63,8 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   }
 
   // ── 3. tenantId no payload? ───────────────────────────────────────────────
-  if (!payload.tenantId) {
+  // master_global pode navegar sem tenant selecionado
+  if (!payload.tenantId && !payload.isMasterGlobal) {
     return NextResponse.redirect(
       new URL(`/select-tenant?return_to=${encodeURIComponent(request.url)}`, request.url)
     )

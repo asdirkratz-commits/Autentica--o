@@ -3,6 +3,9 @@ import { TenantRepo, AuditRepo } from "@repo/db"
 import { requireMasterGlobal } from "@/lib/admin-guard"
 import TenantStatusForm from "./TenantStatusForm"
 import TenantLogoForm from "./TenantLogoForm"
+import TenantThemeForm from "./TenantThemeForm"
+import TenantAiConfigForm from "./TenantAiConfigForm"
+import TenantInfoForm from "./TenantInfoForm"
 import Link from "next/link"
 
 const STATUS_COLORS: Record<string, string> = {
@@ -53,6 +56,7 @@ export default async function TenantDetailPage({
               {[
                 { label: "ID", value: tenant.id, mono: true },
                 { label: "Plano", value: tenant.plan },
+                { label: "CNPJ", value: tenant.cnpj ?? "—", mono: true },
                 { label: "Billing ID", value: tenant.externalBillingId ?? "—" },
                 { label: "Criada em", value: new Date(tenant.createdAt).toLocaleString("pt-BR") },
                 { label: "Status atualizado", value: new Date(tenant.statusUpdatedAt).toLocaleString("pt-BR") },
@@ -63,6 +67,38 @@ export default async function TenantDetailPage({
                 </div>
               ))}
             </dl>
+
+            {/* Endereço */}
+            {(tenant.street ?? tenant.city ?? tenant.zipCode) && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-xs font-semibold text-gray-500 mb-2">Endereço</p>
+                <address className="not-italic text-sm text-gray-700 space-y-0.5">
+                  {tenant.street && (
+                    <p>{tenant.street}{tenant.streetNumber ? `, ${tenant.streetNumber}` : ""}{tenant.complement ? ` — ${tenant.complement}` : ""}</p>
+                  )}
+                  {tenant.district && <p>{tenant.district}</p>}
+                  {(tenant.city ?? tenant.state) && (
+                    <p>{[tenant.city, tenant.state].filter(Boolean).join(" — ")}</p>
+                  )}
+                  {tenant.zipCode && <p className="font-mono text-xs text-gray-500">CEP {tenant.zipCode}</p>}
+                </address>
+              </div>
+            )}
+
+            <TenantInfoForm
+              tenantId={tenant.id}
+              initial={{
+                cnpj: tenant.cnpj,
+                zipCode: tenant.zipCode,
+                street: tenant.street,
+                streetNumber: tenant.streetNumber,
+                complement: tenant.complement,
+                district: tenant.district,
+                city: tenant.city,
+                state: tenant.state,
+              }}
+            />
+
             {tenant.internalNotes && (
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <p className="text-xs text-gray-500 mb-1">Notas internas</p>
@@ -105,6 +141,11 @@ export default async function TenantDetailPage({
             tenantId={tenant.id}
             currentLogoUrl={tenant.logoUrl ?? null}
           />
+          <TenantThemeForm
+            tenantId={tenant.id}
+            currentTheme={tenant.theme ?? null}
+          />
+          <TenantAiConfigForm tenantId={tenant.id} />
           <TenantStatusForm
             tenantId={tenant.id}
             currentStatus={tenant.status}
