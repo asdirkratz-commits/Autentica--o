@@ -2,31 +2,28 @@ import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
 import * as schema from "./schema/index"
 
-const env = {
-  DATABASE_URL: process.env.DATABASE_URL,
-  DIRECT_URL: process.env.DIRECT_URL,
+function createDb() {
+  const url = process.env.DATABASE_URL
+  if (!url) throw new Error("DATABASE_URL is required")
+  const client = postgres(url, { max: 1 })
+  return drizzle(client, { schema })
 }
 
-function getConnectionString(forMigration = false): string {
-  const url = forMigration ? env.DIRECT_URL : env.DATABASE_URL
-  if (!url) {
-    throw new Error(
-      forMigration
-        ? "DIRECT_URL is required for migrations"
-        : "DATABASE_URL is required"
-    )
-  }
-  return url
-}
-
-// Singleton para queries (usa pooler em produção)
-const queryClient = postgres(getConnectionString(), { max: 1 })
-export const db = drizzle(queryClient, { schema })
-
-// Cliente para migrations (usa DIRECT_URL, sem pooler)
 export function getMigrationClient() {
-  const migrationClient = postgres(getConnectionString(true), { max: 1 })
-  return drizzle(migrationClient, { schema })
+  const url = process.env.DIRECT_URL
+  if (!url) throw new Error("DIRECT_URL is required for migrations")
+  const client = postgres(url, { max: 1 })
+  return drizzle(client, { schema })
 }
+
+// Lazy singleton — conecta apenas na primeira query, não no import
+let _db: ReturnType<typeof createDb> | null = null
+
+export const db = new Proxy({} as ReturnType<typeof createDb>, {
+  get(_, prop: string | symbol) {
+    if (!_db) _db = createDb()
+    return (_db as unknown as Record<string | symbol, unknown>)[prop]
+  },
+})
 
 export type DB = typeof db
