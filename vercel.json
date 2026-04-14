@@ -1,6 +1,6 @@
 {
-  "buildCommand": "cd apps/auth && npx next build",
+  "buildCommand": "pnpm turbo run build --filter=@repo/auth",
   "outputDirectory": "apps/auth/.next",
   "installCommand": "pnpm install",
-  "framework": "nextjs"
+  "ignoreCommand": "exit 0"
 }
