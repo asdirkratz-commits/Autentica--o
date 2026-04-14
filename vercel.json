@@ -1,0 +1,6 @@
+{
+  "buildCommand": "cd apps/auth && npx next build",
+  "outputDirectory": "apps/auth/.next",
+  "installCommand": "pnpm install",
+  "framework": "nextjs"
+}
