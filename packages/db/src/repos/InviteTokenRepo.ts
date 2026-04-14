@@ -3,7 +3,7 @@ import { db } from "../client"
 import { inviteTokens, type InviteToken } from "../schema/index"
 import type { UserPermissions } from "../schema/user-tenants"
 
-type Role = "owner" | "admin" | "user"
+type Role = "admin" | "user"
 
 export type CreateInviteTokenDTO = {
   email: string
