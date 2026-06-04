@@ -1,4 +1,4 @@
--- Migration: 0006_user_app_access
+-- Migration: 0006_user_app_access (idempotente)
 -- Controle de acesso a apps por usuário dentro de um tenant.
 --
 -- Regras:
@@ -7,7 +7,7 @@
 --   - ao cadastrar um usuário, o admin define quais apps ele pode acessar
 --   - ao revogar, remove-se a linha correspondente
 
-CREATE TABLE "user_app_access" (
+CREATE TABLE IF NOT EXISTS "user_app_access" (
   "user_id"    UUID        NOT NULL REFERENCES "users"("id")   ON DELETE CASCADE,
   "tenant_id"  UUID        NOT NULL REFERENCES "tenants"("id") ON DELETE CASCADE,
   "app_id"     UUID        NOT NULL REFERENCES "apps"("id")    ON DELETE CASCADE,
@@ -16,8 +16,8 @@ CREATE TABLE "user_app_access" (
   PRIMARY KEY ("user_id", "tenant_id", "app_id")
 );
 
-CREATE INDEX "idx_user_app_access_user_tenant"
+CREATE INDEX IF NOT EXISTS "idx_user_app_access_user_tenant"
   ON "user_app_access" ("user_id", "tenant_id");
 
-CREATE INDEX "idx_user_app_access_tenant_app"
+CREATE INDEX IF NOT EXISTS "idx_user_app_access_tenant_app"
   ON "user_app_access" ("tenant_id", "app_id");
