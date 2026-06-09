@@ -21,8 +21,27 @@ export type JWTPayload = {
   isMasterGlobal: boolean
   permissions: UserPermissions
   nome?: string        // nome do usuário (claim informativo; alimenta x-user-nome)
+  aud?: string[]       // audience: apps p/ os quais o token é válido (F-08). Ex.: ["auth","kontohub","admin"]
   iat?: number
   exp?: number
+}
+
+/** Identificadores de audiência (F-08) — cada app exige o seu na verificação do JWT. */
+export const APP_AUDIENCES = {
+  auth: "auth",
+  admin: "admin",
+  kontohub: "kontohub",
+} as const
+
+/**
+ * Monta o `aud` do token a partir do contexto do usuário.
+ * Todos os autenticados podem usar auth + kontohub (KontoHub aplica os gates
+ * granulares de assinatura/acesso); apenas master_global recebe "admin".
+ */
+export function buildAudience(isMasterGlobal: boolean): string[] {
+  const aud: string[] = [APP_AUDIENCES.auth, APP_AUDIENCES.kontohub]
+  if (isMasterGlobal) aud.push(APP_AUDIENCES.admin)
+  return aud
 }
 
 export type TokenPair = {

@@ -56,17 +56,23 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   // ── 2. JWT válido? ────────────────────────────────────────────────────────
   let userId: string
   let isMasterGlobal: boolean
+  let audAllowsAdmin: boolean
   try {
     const { payload } = await jwtVerify(token, getSecret(), { algorithms: ["HS256"] })
     userId = payload.sub ?? ""
     isMasterGlobal = (payload as Record<string, unknown>).isMasterGlobal === true
+    // F-08: o token deve declarar a audiência "admin". Tokens antigos (sem aud)
+    // são tolerados durante a migração — convergem ao expirar (≤7 dias).
+    const aud = (payload as { aud?: unknown }).aud
+    audAllowsAdmin =
+      aud === undefined ? true : Array.isArray(aud) ? aud.includes("admin") : aud === "admin"
     if (!userId) return withCsp(redirectToLogin(request))
   } catch {
     return withCsp(redirectToLogin(request))
   }
 
-  // ── 3. Checar flag master_global no JWT (verificação definitiva no layout) ─
-  if (!isMasterGlobal) {
+  // ── 3. master_global + audiência "admin" (verificação definitiva no layout) ─
+  if (!isMasterGlobal || !audAllowsAdmin) {
     return withCsp(new NextResponse("Acesso negado: área restrita ao master global.", {
       status: 403,
       headers: { "Content-Type": "text/plain; charset=utf-8" },

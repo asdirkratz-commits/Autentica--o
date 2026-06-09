@@ -1,7 +1,7 @@
 import { SignJWT, jwtVerify, type JWTPayload as JosePayload } from "jose"
 import { createHash } from "crypto"
 import type { JWTPayload } from "@repo/auth-shared"
-import { env } from "@repo/auth-shared"
+import { env, buildAudience } from "@repo/auth-shared"
 
 function getSecret(): Uint8Array {
   return new TextEncoder().encode(env.JWT_SECRET)
@@ -20,6 +20,7 @@ export async function signJWT(
   } as JosePayload)
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(payload.sub)
+    .setAudience(buildAudience(payload.isMasterGlobal)) // F-08: apps p/ os quais o token vale
     .setIssuedAt()
     .setExpirationTime(expiresIn)
     .sign(getSecret())
@@ -35,6 +36,7 @@ export async function verifyJWT(token: string): Promise<JWTPayload | null> {
       isMasterGlobal: payload["isMasterGlobal"] as boolean,
       permissions: (payload["permissions"] as JWTPayload["permissions"]) ?? {},
       nome: payload["nome"] as string | undefined,
+      aud: typeof payload.aud === "string" ? [payload.aud] : (payload.aud as string[] | undefined),
       iat: payload.iat,
       exp: payload.exp,
     }
