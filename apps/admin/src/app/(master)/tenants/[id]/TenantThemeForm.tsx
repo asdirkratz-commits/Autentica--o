@@ -79,61 +79,47 @@ export default function TenantThemeForm({
   ]
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5">
-      <h2 className="text-sm font-semibold text-gray-700 mb-4">Tema / Cores</h2>
+    <div className="card">
+      <p className="portal-section-label">Tema / cores</p>
 
       {/* Preview das cores */}
-      <div className="flex gap-2 mb-4">
+      <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-4)" }}>
         {colorFields.map(({ key, label }) => (
-          <div key={key} className="flex-1 text-center">
-            <div
-              className="h-8 rounded-md mb-1 border border-gray-200"
-              style={{ backgroundColor: theme[key] }}
-            />
-            <p className="text-xs text-gray-500 truncate">{label}</p>
+          <div key={key} style={{ flex: 1, textAlign: "center" }}>
+            <div className="swatch" style={{ backgroundColor: theme[key], marginBottom: 4 }} />
+            <p style={{ fontSize: 11, color: "#6b7280" }}>{label}</p>
           </div>
         ))}
       </div>
 
-      <form onSubmit={(e) => void handleSubmit(e)} className="space-y-3">
+      <form onSubmit={(e) => void handleSubmit(e)}>
         {colorFields.map(({ key, label }) => (
-          <div key={key} className="flex items-center gap-3">
+          <div key={key} className="form-field" style={{ flexDirection: "row", alignItems: "flex-end", gap: "var(--space-3)" }}>
             <input
               type="color"
               value={theme[key]}
               onChange={(e) => handleColor(key, e.target.value)}
-              className="w-10 h-10 rounded cursor-pointer border border-gray-300 p-0.5"
+              className="color-input"
+              aria-label={label}
             />
-            <div className="flex-1">
-              <label className="block text-xs font-medium text-gray-600 mb-0.5">{label}</label>
+            <div style={{ flex: 1 }}>
+              <label className="label">{label}</label>
               <input
                 type="text"
                 value={theme[key]}
                 onChange={(e) => handleColor(key, e.target.value)}
                 placeholder="#000000"
                 pattern="^#[0-9a-fA-F]{6}$"
-                className="w-full px-2 py-1 border border-gray-300 rounded text-xs font-mono focus:outline-none focus:ring-1 focus:ring-brand-500"
+                className="input input--mono"
               />
             </div>
           </div>
         ))}
 
-        {error && (
-          <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-            {error}
-          </div>
-        )}
-        {success && (
-          <div className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-            Tema atualizado com sucesso.
-          </div>
-        )}
+        {error && <div className="alert alert--danger" style={{ marginBottom: "var(--space-3)" }}>{error}</div>}
+        {success && <div className="alert alert--success" style={{ marginBottom: "var(--space-3)" }}>Tema atualizado com sucesso.</div>}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-2.5 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
+        <button type="submit" disabled={loading} className="btn btn--primary btn--block">
           {loading ? "Salvando..." : "Salvar tema"}
         </button>
       </form>

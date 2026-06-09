@@ -100,25 +100,20 @@ export default function TenantLogoForm({
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5">
-      <h2 className="text-sm font-semibold text-gray-700 mb-4">Logo Marca</h2>
+    <div className="card">
+      <p className="portal-section-label">Logomarca</p>
 
       {/* Preview */}
-      <div className="flex items-center justify-center h-24 rounded-lg border border-dashed border-gray-300 bg-gray-50 mb-4 overflow-hidden">
+      <div className="logo-preview">
         {preview ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={preview}
-            alt="Logo da empresa"
-            className="max-h-20 max-w-full object-contain"
-            onError={() => setPreview(null)}
-          />
+          <img src={preview} alt="Logo da empresa" style={{ maxHeight: 80, maxWidth: "100%", objectFit: "contain" }} onError={() => setPreview(null)} />
         ) : (
-          <p className="text-xs text-gray-400">Sem logo cadastrada</p>
+          <p style={{ fontSize: 12, color: "#9ca3af" }}>Sem logo cadastrada</p>
         )}
       </div>
 
-      {/* Drop zone / botão de upload */}
+      {/* Drop zone / upload */}
       <div
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
         onDragLeave={() => setIsDragging(false)}
@@ -129,11 +124,7 @@ export default function TenantLogoForm({
           if (file) handleFileSelect(file)
         }}
         onClick={() => fileInputRef.current?.click()}
-        className={`cursor-pointer rounded-lg border-2 border-dashed px-4 py-5 text-center transition-colors ${
-          isDragging
-            ? "border-brand-400 bg-brand-50"
-            : "border-gray-300 hover:border-brand-400 hover:bg-gray-50"
-        }`}
+        className={`dropzone${isDragging ? " dropzone--drag" : ""}`}
       >
         <input
           ref={fileInputRef}
@@ -143,12 +134,12 @@ export default function TenantLogoForm({
           onChange={(e) => {
             const file = e.target.files?.[0]
             if (file) handleFileSelect(file)
-            e.target.value = "" // reset para permitir re-upload do mesmo arquivo
+            e.target.value = ""
           }}
         />
 
         {uploading ? (
-          <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "var(--space-2)", fontSize: 13, color: "#6b7280" }}>
             <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -157,34 +148,22 @@ export default function TenantLogoForm({
           </div>
         ) : (
           <>
-            <svg className="w-6 h-6 text-gray-400 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <svg className="w-6 h-6" style={{ color: "#9ca3af", margin: "0 auto 4px" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
             </svg>
-            <p className="text-xs text-gray-500">
-              <span className="font-medium text-brand-600">Clique para enviar</span> ou arraste aqui
+            <p style={{ fontSize: 12, color: "#6b7280" }}>
+              <span style={{ fontWeight: 500, color: "var(--k-color-secondary)" }}>Clique para enviar</span> ou arraste aqui
             </p>
-            <p className="text-xs text-gray-400 mt-0.5">PNG, JPG, SVG ou WebP — máx. 2 MB</p>
+            <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>PNG, JPG, SVG ou WebP — máx. 2 MB</p>
           </>
         )}
       </div>
 
-      {error && (
-        <div className="mt-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="mt-3 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-          Logo atualizada com sucesso.
-        </div>
-      )}
+      {error && <div className="alert alert--danger" style={{ marginTop: "var(--space-3)" }}>{error}</div>}
+      {success && <div className="alert alert--success" style={{ marginTop: "var(--space-3)" }}>Logo atualizada com sucesso.</div>}
 
       {preview && !uploading && (
-        <button
-          type="button"
-          onClick={() => void handleRemove()}
-          className="mt-3 w-full py-2 text-xs font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
-        >
+        <button type="button" onClick={() => void handleRemove()} className="btn btn--danger-ghost btn--block btn--sm" style={{ marginTop: "var(--space-3)" }}>
           Remover logo
         </button>
       )}
