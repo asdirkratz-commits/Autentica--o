@@ -1,12 +1,6 @@
 /** @type {import('next').NextConfig} */
-// F-09: 'unsafe-eval' só é necessário em dev (React Refresh/HMR); em produção o
-// Next App Router não precisa → removido. 'unsafe-inline' em script-src segue
-// pendente — removê-lo exige nonce por requisição (S01c, com smoke-test logado).
-const isDev = process.env.NODE_ENV !== "production"
-const scriptSrc = isDev
-  ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-  : "script-src 'self' 'unsafe-inline'"
-
+// Headers de segurança estáticos. O Content-Security-Policy é definido POR
+// REQUISIÇÃO no middleware (nonce + strict-dynamic em produção — F-09/S01c).
 const securityHeaders = [
   { key: "X-DNS-Prefetch-Control",   value: "on" },
   { key: "X-Frame-Options",          value: "DENY" },
@@ -16,20 +10,6 @@ const securityHeaders = [
   {
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains; preload",
-  },
-  {
-    key: "Content-Security-Policy",
-    value: [
-      "default-src 'self'",
-      scriptSrc,
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com",
-      "font-src 'self'",
-      "connect-src 'self'",
-      "object-src 'none'",
-      "base-uri 'self'",
-      "frame-ancestors 'none'",
-    ].join("; "),
   },
 ]
 

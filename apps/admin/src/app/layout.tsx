@@ -6,6 +6,9 @@ export const metadata: Metadata = {
   description: "Painel de administração do ecossistema multi-app",
 }
 
+// Renderização dinâmica: necessária para o CSP com nonce por requisição (F-09/S01c).
+export const dynamic = "force-dynamic"
+
 export default function RootLayout({
   children,
 }: {

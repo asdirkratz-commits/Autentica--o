@@ -7,7 +7,7 @@
  */
 import { NextRequest, NextResponse } from "next/server"
 import { jwtVerify } from "jose"
-import { env, stripIdentityHeaders } from "@repo/auth-shared"
+import { env, stripIdentityHeaders, generateCspNonce, buildCsp } from "@repo/auth-shared"
 
 const AUTH_URL = process.env.NEXT_PUBLIC_AUTH_URL ?? "http://localhost:3001"
 const COOKIE_NAME = "access_token"
@@ -28,14 +28,29 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   // qualquer retorno (inclusive rotas públicas).
   const safeHeaders = stripIdentityHeaders(request.headers)
 
+  // ── CSP por requisição (F-09): nonce + strict-dynamic em prod; permissivo em dev ──
+  const nonce = process.env.NODE_ENV === "production" ? generateCspNonce() : null
+  const csp = buildCsp(nonce)
+  // Nunca confiar em CSP/nonce vindos do cliente (em qualquer modo).
+  safeHeaders.delete("x-nonce")
+  safeHeaders.delete("content-security-policy")
+  if (nonce) {
+    safeHeaders.set("x-nonce", nonce)
+    safeHeaders.set("content-security-policy", csp)
+  }
+  const withCsp = (res: NextResponse): NextResponse => {
+    res.headers.set("Content-Security-Policy", csp)
+    return res
+  }
+
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next({ request: { headers: safeHeaders } })
+    return withCsp(NextResponse.next({ request: { headers: safeHeaders } }))
   }
 
   // ── 1. JWT presente? ──────────────────────────────────────────────────────
   const token = request.cookies.get(COOKIE_NAME)?.value
   if (!token) {
-    return redirectToLogin(request)
+    return withCsp(redirectToLogin(request))
   }
 
   // ── 2. JWT válido? ────────────────────────────────────────────────────────
@@ -45,23 +60,23 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     const { payload } = await jwtVerify(token, getSecret(), { algorithms: ["HS256"] })
     userId = payload.sub ?? ""
     isMasterGlobal = (payload as Record<string, unknown>).isMasterGlobal === true
-    if (!userId) return redirectToLogin(request)
+    if (!userId) return withCsp(redirectToLogin(request))
   } catch {
-    return redirectToLogin(request)
+    return withCsp(redirectToLogin(request))
   }
 
   // ── 3. Checar flag master_global no JWT (verificação definitiva no layout) ─
   if (!isMasterGlobal) {
-    return new NextResponse("Acesso negado: área restrita ao master global.", {
+    return withCsp(new NextResponse("Acesso negado: área restrita ao master global.", {
       status: 403,
       headers: { "Content-Type": "text/plain; charset=utf-8" },
-    })
+    }))
   }
 
   // ── 4. Injetar headers (sobre a base sanitizada) e prosseguir ─────────────
   safeHeaders.set("x-user-id", userId)
 
-  return NextResponse.next({ request: { headers: safeHeaders } })
+  return withCsp(NextResponse.next({ request: { headers: safeHeaders } }))
 }
 
 function redirectToLogin(request: NextRequest): NextResponse {
