@@ -275,3 +275,25 @@
 .tenant-option__name { display: block; font-size: 14px; font-weight: 500; color: var(--k-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tenant-option__slug { display: block; font-size: 12px; color: #9ca3af; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tenant-option__role { margin-left: var(--space-2); font-size: 12px; color: #9ca3af; text-transform: capitalize; flex-shrink: 0; }
+
+/* ── Portal (dashboard pós-login) ─────────────────────────────────────────── */
+.portal { max-width: 720px; }
+.portal-greeting { font-size: 22px; font-weight: 600; color: var(--k-color-primary); }
+.portal-greeting-sub { font-size: 13px; color: #6b7280; margin-top: var(--space-1); }
+.card { background: #fff; border: 1px solid #e5e7eb; border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6); }
+.portal-section-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #6b7280; margin-bottom: var(--space-3); }
+.portal-row { display: flex; align-items: center; gap: var(--space-4); }
+.portal-avatar { width: 48px; height: 48px; border-radius: 50%; background: color-mix(in srgb, var(--k-color-secondary) 14%, #fff); color: var(--k-color-primary); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; flex-shrink: 0; overflow: hidden; }
+.portal-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.portal-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--k-color-secondary); font-weight: 500; text-decoration: none; }
+.portal-link:hover { text-decoration: underline; }
+.app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: var(--space-2); }
+.portal-empty { font-size: 13px; color: #9ca3af; text-align: center; padding: var(--space-6) 0; }
+
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px var(--space-2); border-radius: var(--radius-full); font-size: 11px; font-weight: 500; }
+.badge--success { background: #dcfce7; color: #15803d; }
+.badge--warning { background: #fef9c3; color: #a16207; }
+.badge--danger  { background: #fee2e2; color: #b91c1c; }
+.badge--neutral { background: #f3f4f6; color: #4b5563; }
+.badge--master  { background: #fef3c7; color: #b45309; }
+.badge--brand   { background: color-mix(in srgb, var(--k-color-secondary) 14%, #fff); color: var(--k-color-primary); }
