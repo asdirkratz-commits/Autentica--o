@@ -53,11 +53,11 @@ export default async function SelectTenantPage({
   )
 
   return (
-    <div className="max-w-md mx-auto">
-      <h1 className="text-2xl font-semibold text-gray-900 mb-1">Selecione a empresa</h1>
-      <p className="text-sm text-gray-500 mb-8">
-        Escolha com qual empresa você deseja acessar agora.
-      </p>
+    <div className="portal" style={{ maxWidth: 440 }}>
+      <div style={{ marginBottom: "var(--space-8)" }}>
+        <h1 className="portal-greeting">Selecione a empresa</h1>
+        <p className="portal-greeting-sub">Escolha com qual empresa você deseja acessar agora.</p>
+      </div>
       <SelectTenantClient tenants={availableTenants} returnTo={returnTo ?? "/"} />
     </div>
   )

@@ -54,53 +54,35 @@ export default function SelectTenantClient({
 
   return (
     <div>
-      {error && (
-        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
-          {error}
-        </div>
-      )}
+      {error && <div className="alert alert--danger" style={{ marginBottom: "var(--space-4)" }}>{error}</div>}
 
-      <div className="space-y-3">
+      <div>
         {tenants.map((t) => (
           <button
             key={t.tenantId}
+            type="button"
             onClick={() => void selectTenant(t.tenantId)}
             disabled={loading !== null}
-            className="w-full flex items-center gap-4 px-4 py-4 border border-gray-200 rounded-xl hover:border-brand-400 hover:bg-brand-50 transition-colors text-left disabled:opacity-60"
+            className="tenant-option"
           >
-            <div className="w-10 h-10 bg-brand-100 rounded-lg flex items-center justify-center shrink-0">
-              <span className="text-brand-700 font-semibold text-sm uppercase">
-                {t.name.charAt(0)}
+            <span style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", minWidth: 0 }}>
+              <span className="portal-avatar" style={{ width: 36, height: 36, fontSize: 14, borderRadius: "var(--radius-md)" }}>
+                {t.name.charAt(0).toUpperCase()}
               </span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{t.name}</p>
-              <p className="text-xs text-gray-400">{t.slug}</p>
-            </div>
-            <span className="text-xs text-gray-500 shrink-0 bg-gray-100 px-2 py-0.5 rounded-full">
-              {ROLE_LABELS[t.role] ?? t.role}
+              <span style={{ minWidth: 0 }}>
+                <span className="tenant-option__name">{t.name}</span>
+                <span className="tenant-option__slug">{t.slug}</span>
+              </span>
             </span>
-            {loading === t.tenantId && (
-              <svg
-                className="animate-spin w-4 h-4 text-brand-600 shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v8H4z"
-                />
-              </svg>
-            )}
+            <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+              <span className="badge badge--neutral">{ROLE_LABELS[t.role] ?? t.role}</span>
+              {loading === t.tenantId && (
+                <svg className="animate-spin w-4 h-4 shrink-0" style={{ color: "var(--k-color-secondary)" }} fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+              )}
+            </span>
           </button>
         ))}
       </div>
