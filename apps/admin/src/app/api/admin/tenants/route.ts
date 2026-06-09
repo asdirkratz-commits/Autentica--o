@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { TenantRepo, AuditRepo } from "@repo/db"
 import { err, ErrorCode } from "@repo/auth-shared"
+import { requireMasterGlobalApi } from "@/lib/api-guard"
 
 /** Valida dígitos verificadores do CNPJ (algoritmo padrão da Receita Federal) */
 function isValidCnpj(cnpj: string): boolean {
@@ -44,13 +45,9 @@ type TenantBody = {
 
 // POST /api/admin/tenants — criar nova empresa (master_global only)
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const userId = request.headers.get("x-user-id")
-  if (!userId) {
-    return NextResponse.json(
-      err(ErrorCode.UNAUTHORIZED, "Não autenticado", 401).error,
-      { status: 401 }
-    )
-  }
+  const guard = await requireMasterGlobalApi()
+  if (!guard.ok) return guard.response
+  const userId = guard.userId
 
   let body: TenantBody
   try {

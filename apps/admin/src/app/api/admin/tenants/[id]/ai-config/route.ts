@@ -5,6 +5,7 @@ import {
   encryptApiKey, serializeAiConfig, deserializeAiConfig, toPublicAiConfig,
   type AiProvider, type AiConfig,
 } from "@repo/auth-shared"
+import { requireMasterGlobalApi } from "@/lib/api-guard"
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -17,13 +18,9 @@ const VALID_PROVIDERS: AiProvider[] = ["openai", "gemini", "claude"]
 
 // PATCH /api/admin/tenants/[id]/ai-config — salva configuração de IA (criptografada)
 export async function PATCH(request: NextRequest, { params }: Params): Promise<NextResponse> {
-  const userId = request.headers.get("x-user-id")
-  if (!userId) {
-    return NextResponse.json(
-      err(ErrorCode.UNAUTHORIZED, "Não autenticado", 401).error,
-      { status: 401 }
-    )
-  }
+  const guard = await requireMasterGlobalApi()
+  if (!guard.ok) return guard.response
+  const userId = guard.userId
 
   const encKey = process.env.AI_ENCRYPTION_KEY
   if (!encKey || encKey.length !== 64) {
@@ -143,6 +140,9 @@ export async function PATCH(request: NextRequest, { params }: Params): Promise<N
 
 // GET /api/admin/tenants/[id]/ai-config — retorna config pública (sem chaves)
 export async function GET(_request: NextRequest, { params }: Params): Promise<NextResponse> {
+  const guard = await requireMasterGlobalApi()
+  if (!guard.ok) return guard.response
+
   const { id } = await params
 
   const tenant = await TenantRepo.findById(id)

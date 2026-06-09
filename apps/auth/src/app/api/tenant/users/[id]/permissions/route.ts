@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { headers } from "next/headers"
 import { UserRepo, AuditRepo } from "@repo/db"
 import { err, ErrorCode } from "@repo/auth-shared"
+import { requireActiveTenantMember } from "@/lib/api-guard"
 import type { UserPermissions } from "@repo/auth-shared"
 
 // PATCH /api/tenant/users/[id]/permissions
@@ -9,17 +9,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-  const hdrs = await headers()
-  const actorId = hdrs.get("x-user-id")
-  const tenantId = hdrs.get("x-tenant-id")
-  const actorRole = hdrs.get("x-user-role")
-
-  if (!actorId || !tenantId) {
-    return NextResponse.json(
-      err(ErrorCode.UNAUTHORIZED, "Não autenticado", 401).error,
-      { status: 401 }
-    )
-  }
+  const guard = await requireActiveTenantMember()
+  if (!guard.ok) return guard.response
+  const { userId: actorId, tenantId, role: actorRole } = guard.ctx
 
   if (actorRole !== "admin") {
     return NextResponse.json(

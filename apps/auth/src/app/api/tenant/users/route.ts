@@ -1,23 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
-import { headers } from "next/headers"
 import { UserRepo, UserAppAccessRepo, AuditRepo } from "@repo/db"
 import { err, ErrorCode } from "@repo/auth-shared"
+import { requireActiveTenantMember } from "@/lib/api-guard"
 import { hashPassword, validatePasswordStrength } from "@/lib/password"
 import type { UserPermissions } from "@repo/auth-shared"
 
 // GET /api/tenant/users — listar usuários do tenant atual (admin+)
 export async function GET(): Promise<NextResponse> {
-  const hdrs = await headers()
-  const userId = hdrs.get("x-user-id")
-  const tenantId = hdrs.get("x-tenant-id")
-  const role = hdrs.get("x-user-role")
-
-  if (!userId || !tenantId) {
-    return NextResponse.json(
-      err(ErrorCode.UNAUTHORIZED, "Não autenticado", 401).error,
-      { status: 401 }
-    )
-  }
+  const guard = await requireActiveTenantMember()
+  if (!guard.ok) return guard.response
+  const { tenantId, role } = guard.ctx
 
   if (role !== "admin") {
     return NextResponse.json(
@@ -33,18 +25,9 @@ export async function GET(): Promise<NextResponse> {
 // POST /api/tenant/users — cadastro direto de usuário pelo Admin ou Master
 // Sem envio de e-mail de convite — o Admin define senha na hora do cadastro.
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const hdrs = await headers()
-  const actorId = hdrs.get("x-user-id")
-  const tenantId = hdrs.get("x-tenant-id")
-  const actorRole = hdrs.get("x-user-role")
-  const isMasterGlobal = hdrs.get("x-master-global") === "true"
-
-  if (!actorId || !tenantId) {
-    return NextResponse.json(
-      err(ErrorCode.UNAUTHORIZED, "Não autenticado", 401).error,
-      { status: 401 }
-    )
-  }
+  const guard = await requireActiveTenantMember()
+  if (!guard.ok) return guard.response
+  const { userId: actorId, tenantId, role: actorRole, isMasterGlobal } = guard.ctx
 
   if (actorRole !== "admin" && !isMasterGlobal) {
     return NextResponse.json(

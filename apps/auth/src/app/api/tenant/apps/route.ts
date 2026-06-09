@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
-import { headers } from "next/headers"
 import { AppRepo, UserAppAccessRepo } from "@repo/db"
 import { err, ErrorCode } from "@repo/auth-shared"
+import { requireActiveTenantMember } from "@/lib/api-guard"
 import { cache } from "@/lib/redis"
 
 // GET /api/tenant/apps — apps disponíveis para o usuário atual
@@ -10,18 +10,9 @@ import { cache } from "@/lib/redis"
 //   admin e master_global → todos os apps com assinatura ativa no tenant
 //   user                  → apenas os apps em user_app_access (interseção com assinatura do tenant)
 export async function GET(): Promise<NextResponse> {
-  const hdrs = headers()
-  const userId = hdrs.get("x-user-id")
-  const tenantId = hdrs.get("x-tenant-id")
-  const role = hdrs.get("x-user-role")
-  const isMasterGlobal = hdrs.get("x-master-global") === "true"
-
-  if (!userId || !tenantId) {
-    return NextResponse.json(
-      err(ErrorCode.UNAUTHORIZED, "Não autenticado", 401).error,
-      { status: 401 }
-    )
-  }
+  const guard = await requireActiveTenantMember()
+  if (!guard.ok) return guard.response
+  const { userId, tenantId, role, isMasterGlobal } = guard.ctx
 
   // Buscar todos os apps com assinatura ativa no tenant
   const subscriptions = await AppRepo.getSubscriptionsForTenant(tenantId)
