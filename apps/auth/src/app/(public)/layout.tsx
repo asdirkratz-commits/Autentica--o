@@ -6,9 +6,9 @@ export default function PublicLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen flex">
+    <div className="auth-layout">
       {/* Painel esquerdo — identidade Konto */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center p-12 bg-brand-900">
+      <div className="auth-brand">
         <Image
           src="/logo.jpg"
           alt="Konto Contabilidade"
@@ -17,15 +17,15 @@ export default function PublicLayout({
           className="object-contain"
           priority
         />
-        <p className="mt-8 text-center text-sm max-w-xs text-brand-300">
+        <p className="auth-brand__tagline">
           Ecossistema integrado para escritórios de contabilidade
         </p>
       </div>
 
       {/* Painel direito — formulário */}
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 bg-white">
+      <div className="auth-panel">
         {/* Logo visível só no mobile */}
-        <div className="lg:hidden mb-8">
+        <div className="auth-panel__mobile-logo">
           <Image
             src="/logo.jpg"
             alt="Konto Contabilidade"
@@ -36,7 +36,7 @@ export default function PublicLayout({
           />
         </div>
 
-        <div className="w-full max-w-sm">
+        <div className="auth-card">
           {children}
         </div>
       </div>

@@ -72,6 +72,9 @@ importers:
       '@repo/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@repo/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
@@ -189,6 +192,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@repo/auth-shared':
+        specifier: workspace:*
+        version: link:../auth-shared
       react:
         specifier: ^18.3.0
         version: 18.3.1
