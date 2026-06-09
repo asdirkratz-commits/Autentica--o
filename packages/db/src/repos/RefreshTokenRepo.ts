@@ -4,7 +4,7 @@ import { refreshTokens, type RefreshToken, type NewRefreshToken } from "../schem
 
 export type CreateRefreshTokenDTO = {
   userId: string
-  tenantId: string
+  tenantId: string | null
   tokenHash: string
   expiresAt: Date
   userAgent?: string

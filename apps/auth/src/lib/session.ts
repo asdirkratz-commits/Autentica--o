@@ -39,17 +39,16 @@ export async function createSession(
   const refreshExpiresSeconds = parseExpiresIn(env.JWT_REFRESH_EXPIRES)
   const refreshExpiresAt = new Date(Date.now() + refreshExpiresSeconds * 1000)
 
-  // Só persiste refresh token quando há tenant válido (FK exige tenant existente no banco)
-  if (tenantId) {
-    await RefreshTokenRepo.create({
-      userId,
-      tenantId,
-      tokenHash: hashToken(refreshToken),
-      expiresAt: refreshExpiresAt,
-      userAgent: meta.userAgent,
-      ipAddress: meta.ipAddress,
-    })
-  }
+  // Persiste o refresh token SEMPRE — inclusive para master_global sem tenant
+  // (tenant_id NULL), para que rotação e detecção de reuse (F-06) cubram o caso.
+  await RefreshTokenRepo.create({
+    userId,
+    tenantId: tenantId ?? null,
+    tokenHash: hashToken(refreshToken),
+    expiresAt: refreshExpiresAt,
+    userAgent: meta.userAgent,
+    ipAddress: meta.ipAddress,
+  })
 
   await UserRepo.updateLastLogin(userId)
 

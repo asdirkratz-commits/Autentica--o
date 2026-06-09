@@ -16,8 +16,10 @@ export const refreshTokens = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    // Nullable: master_global sem tenant selecionado tem sessão persistível
+    // (habilita rotação + detecção de reuse / F-06 para esse caso). FK mantida —
+    // NULL não viola a referência.
     tenantId: uuid("tenant_id")
-      .notNull()
       .references(() => tenants.id, { onDelete: "cascade" }),
     tokenHash: text("token_hash").notNull().unique(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),

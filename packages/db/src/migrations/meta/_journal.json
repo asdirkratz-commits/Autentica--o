@@ -57,6 +57,13 @@
       "when": 1775844207789,
       "tag": "0007_apps_parent",
       "breakpoints": false
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781016148963,
+      "tag": "0008_refresh_tokens_nullable_tenant",
+      "breakpoints": false
     }
   ]
 }

@@ -84,12 +84,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // Revogar token atual e emitir novo par (rotation)
   await revokeSession(refreshToken)
 
-  const userTenant = await UserRepo.getUserRoleInTenant(user.id, payload.tenantId)
+  // "master" é sentinela do JWT (master_global sem tenant). Normaliza para
+  // undefined ANTES de qualquer consulta por tenant — passar "master" a uma
+  // coluna uuid quebra (invalid input syntax for type uuid). Também é o valor
+  // passado ao createSession, que persiste tenant_id NULL em vez de violar a FK.
+  const sessionTenantId = payload.tenantId === "master" ? undefined : payload.tenantId
+
+  const userTenant = sessionTenantId
+    ? await UserRepo.getUserRoleInTenant(user.id, sessionTenantId)
+    : null
   const permissions = (userTenant?.permissions ?? {}) as Record<string, boolean>
 
   const { tokens, refreshExpiresAt } = await createSession(
     user.id,
-    payload.tenantId,
+    sessionTenantId,
     payload.role,
     user.isMasterGlobal,
     permissions,
