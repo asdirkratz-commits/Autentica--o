@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { headers } from "next/headers"
 import { UserRepo } from "@repo/db"
 import { TenantRepo } from "@repo/db"
+import { safeReturnTo } from "@/lib/safe-redirect"
 import SelectTenantClient from "./SelectTenantClient"
 
 export default async function SelectTenantPage({
@@ -9,7 +10,8 @@ export default async function SelectTenantPage({
 }: {
   searchParams: Promise<{ return_to?: string }>
 }) {
-  const { return_to: returnTo } = await searchParams
+  const { return_to: rawReturnTo } = await searchParams
+  const returnTo = safeReturnTo(rawReturnTo)
   const hdrs = await headers()
   const userId = hdrs.get("x-user-id")
 

@@ -9,6 +9,15 @@ const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/svg+xml", 
 type Params = { params: Promise<{ id: string }> }
 
 /**
+ * Aceita apenas URLs de logo http(s) ou data:image (a logo é renderizada em
+ * <img>); rejeita esquemas perigosos como javascript:/vbscript:. Vazio = remover.
+ */
+function isSafeLogoUrl(url: string): boolean {
+  if (!url) return true
+  return /^https?:\/\//i.test(url) || /^data:image\//i.test(url)
+}
+
+/**
  * POST /api/admin/tenants/[id]/logo — upload de arquivo de logo
  * Aceita multipart/form-data com campo "file" (imagem) ou JSON com "logoUrl".
  *
@@ -111,6 +120,12 @@ export async function POST(request: NextRequest, { params }: Params): Promise<Ne
       )
     }
     logoUrl = body.logoUrl?.trim() ?? ""
+    if (!isSafeLogoUrl(logoUrl)) {
+      return NextResponse.json(
+        err(ErrorCode.VALIDATION_ERROR, "URL de logo inválida (use http(s) ou data:image)", 400).error,
+        { status: 400 }
+      )
+    }
   }
 
   await TenantRepo.updateLogo(id, logoUrl || null)
@@ -158,6 +173,12 @@ export async function PATCH(request: NextRequest, { params }: Params): Promise<N
   }
 
   const logoUrl = body.logoUrl?.trim() || null
+  if (logoUrl && !isSafeLogoUrl(logoUrl)) {
+    return NextResponse.json(
+      err(ErrorCode.VALIDATION_ERROR, "URL de logo inválida (use http(s) ou data:image)", 400).error,
+      { status: 400 }
+    )
+  }
   await TenantRepo.updateLogo(id, logoUrl)
 
   await AuditRepo.log({

@@ -5,10 +5,26 @@ import { env } from "@repo/auth-shared"
 const ACCESS_TOKEN_COOKIE = "access_token"
 const REFRESH_TOKEN_COOKIE = "refresh_token"
 
+/**
+ * Cookies `Secure` quando o serviço é servido por HTTPS — derivado do protocolo
+ * da URL pública configurada, não só de NODE_ENV (staging HTTPS com NODE_ENV
+ * != production também recebe Secure; dev em http://localhost não).
+ */
+function isSecureContext(): boolean {
+  try {
+    if (env.NEXT_PUBLIC_AUTH_URL) {
+      return new URL(env.NEXT_PUBLIC_AUTH_URL).protocol === "https:"
+    }
+  } catch {
+    // URL malformada → cai no fallback
+  }
+  return env.isProduction
+}
+
 function cookieConfig() {
   return {
     httpOnly: true,
-    secure: env.isProduction,
+    secure: isSecureContext(),
     sameSite: "lax" as const,
     domain: env.COOKIE_DOMAIN || undefined,
     path: "/",

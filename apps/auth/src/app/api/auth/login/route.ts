@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { UserRepo, AuditRepo, TenantRepo } from "@repo/db"
 import { err, ErrorCode, enforceSameOrigin } from "@repo/auth-shared"
-import { comparePassword } from "@/lib/password"
+import { comparePassword, hashPassword } from "@/lib/password"
 import { createSession } from "@/lib/session"
 import { setAuthCookies } from "@/lib/cookies"
 import { checkRateLimit } from "@/lib/rate-limit"
@@ -47,6 +47,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const user = await UserRepo.findByEmail(email.toLowerCase().trim())
 
   if (!user) {
+    // Equaliza o tempo de resposta com o ramo de senha incorreta (que roda bcrypt),
+    // evitando enumeração de e-mails por timing. Resultado descartado.
+    await hashPassword(password)
     await AuditRepo.log({
       action: "auth.login_failed",
       targetType: "user",

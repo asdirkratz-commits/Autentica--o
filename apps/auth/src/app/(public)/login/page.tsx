@@ -3,13 +3,14 @@
 import { Suspense, useState, FormEvent } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
+import { safeReturnTo } from "@/lib/safe-redirect"
 
 type Tenant = { tenantId: string; role: string; name: string; slug: string }
 
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const returnTo = searchParams.get("return_to") ?? "/"
+  const returnTo = safeReturnTo(searchParams.get("return_to")) ?? "/"
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")

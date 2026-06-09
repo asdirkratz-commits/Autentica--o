@@ -4,6 +4,8 @@ import { UserRepo, AuditRepo } from "@repo/db"
 import { err, ErrorCode, enforceSameOrigin } from "@repo/auth-shared"
 import { hashPassword, comparePassword, validatePasswordStrength } from "@/lib/password"
 import { checkRateLimit } from "@/lib/rate-limit"
+import { revokeOtherUserSessions } from "@/lib/session"
+import { getRefreshTokenFromCookies } from "@/lib/cookies"
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const csrf = enforceSameOrigin(request)
@@ -80,6 +82,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const newHash = await hashPassword(newPassword)
   await UserRepo.updatePassword(userId, newHash)
+
+  // Derruba as DEMAIS sessões do usuário (mantém a atual) — uma senha trocada deve
+  // invalidar sessões em outros dispositivos / de eventual atacante.
+  await revokeOtherUserSessions(userId, getRefreshTokenFromCookies(request))
 
   await AuditRepo.log({
     userId,

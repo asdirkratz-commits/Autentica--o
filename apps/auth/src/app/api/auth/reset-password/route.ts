@@ -3,6 +3,7 @@ import { UserRepo, AuditRepo, PasswordResetRepo } from "@repo/db"
 import { err, ErrorCode, enforceSameOrigin } from "@repo/auth-shared"
 import { hashToken } from "@/lib/jwt"
 import { hashPassword, validatePasswordStrength } from "@/lib/password"
+import { revokeAllUserSessions } from "@/lib/session"
 
 // POST /api/auth/reset-password — redefinir senha com token
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -56,6 +57,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const passwordHash = await hashPassword(password)
   await UserRepo.updatePassword(resetToken.userId, passwordHash)
   await PasswordResetRepo.markUsed(resetToken.id)
+
+  // Reset via "esqueci a senha": revoga TODAS as sessões (derruba sessão de eventual
+  // atacante). O usuário não está logado neste fluxo, então não há sessão a preservar.
+  await revokeAllUserSessions(resetToken.userId)
 
   await AuditRepo.log({
     userId: resetToken.userId,

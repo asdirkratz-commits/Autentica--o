@@ -68,6 +68,18 @@ export async function revokeAllUserSessions(userId: string): Promise<void> {
   await RefreshTokenRepo.revokeAllForUser(userId)
 }
 
+/**
+ * Revoga todas as sessões do usuário EXCETO a atual (a do refresh token informado).
+ * Usado ao trocar de senha: derruba os outros dispositivos sem deslogar quem agiu.
+ */
+export async function revokeOtherUserSessions(
+  userId: string,
+  currentRefreshToken: string | undefined
+): Promise<void> {
+  const exceptHash = currentRefreshToken ? hashToken(currentRefreshToken) : ""
+  await RefreshTokenRepo.revokeAllForUserExcept(userId, exceptHash)
+}
+
 export async function revokeAllTenantSessions(tenantId: string): Promise<void> {
   await RefreshTokenRepo.revokeAllForTenant(tenantId)
 }

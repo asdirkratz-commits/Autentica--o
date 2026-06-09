@@ -112,7 +112,7 @@ export async function PATCH(request: NextRequest, { params }: Params): Promise<N
 
   await AuditRepo.log({
     userId,
-    action: "tenant.status_changed",
+    action: "tenant.info_updated",
     targetType: "tenant",
     targetId: id,
     metadata: { updated: "cnpj_address" },

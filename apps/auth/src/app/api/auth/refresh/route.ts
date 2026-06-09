@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { RefreshTokenRepo, UserRepo } from "@repo/db"
+import { RefreshTokenRepo, UserRepo, AuditRepo } from "@repo/db"
 import { err, ErrorCode, enforceSameOrigin } from "@repo/auth-shared"
 import { verifyJWT, hashToken } from "@/lib/jwt"
-import { createSession, revokeSession } from "@/lib/session"
+import { createSession, revokeSession, revokeAllUserSessions } from "@/lib/session"
 import { setAuthCookies, clearAuthCookies, getRefreshTokenFromCookies } from "@/lib/cookies"
 import { cache } from "@/lib/redis"
 
@@ -34,6 +34,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const tokenHash = hashToken(refreshToken)
   const storedToken = await RefreshTokenRepo.findByHash(tokenHash)
   if (!storedToken) {
+    // Detecção de reuse: JWT válido + token ausente entre os ativos. Se ele EXISTE
+    // mas está revogado, é um refresh já rotacionado sendo reapresentado → possível
+    // roubo. Resposta: revoga toda a família de sessões do usuário (mata o atacante).
+    const reused = await RefreshTokenRepo.findAnyByHash(tokenHash)
+    if (reused) {
+      await revokeAllUserSessions(payload.sub)
+      await AuditRepo.log({
+        userId: payload.sub,
+        action: "session.all_revoked",
+        targetType: "session",
+        targetId: payload.sub,
+        metadata: { reason: "refresh_token_reuse" },
+        ipAddress: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
+      })
+    }
     const response = NextResponse.json(
       err(ErrorCode.TOKEN_EXPIRED, "Refresh token revogado ou inválido", 401).error,
       { status: 401 }

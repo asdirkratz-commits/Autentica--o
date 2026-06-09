@@ -1,4 +1,4 @@
-import { eq, and, isNull, lt } from "drizzle-orm"
+import { eq, and, isNull, lt, ne } from "drizzle-orm"
 import { db } from "../client"
 import { refreshTokens, type RefreshToken, type NewRefreshToken } from "../schema/index"
 
@@ -43,6 +43,16 @@ export const RefreshTokenRepo = {
     return rows[0] ?? null
   },
 
+  /** Busca por hash INCLUSIVE revogados — usado na detecção de reuse de refresh. */
+  async findAnyByHash(tokenHash: string): Promise<RefreshToken | null> {
+    const rows = await db
+      .select()
+      .from(refreshTokens)
+      .where(eq(refreshTokens.tokenHash, tokenHash))
+      .limit(1)
+    return rows[0] ?? null
+  },
+
   async revoke(tokenHash: string): Promise<void> {
     await db
       .update(refreshTokens)
@@ -58,6 +68,20 @@ export const RefreshTokenRepo = {
         and(
           eq(refreshTokens.userId, userId),
           isNull(refreshTokens.revokedAt)
+        )
+      )
+  },
+
+  /** Revoga todas as sessões ativas do usuário, exceto a do hash informado. */
+  async revokeAllForUserExcept(userId: string, exceptTokenHash: string): Promise<void> {
+    await db
+      .update(refreshTokens)
+      .set({ revokedAt: new Date() })
+      .where(
+        and(
+          eq(refreshTokens.userId, userId),
+          isNull(refreshTokens.revokedAt),
+          ne(refreshTokens.tokenHash, exceptTokenHash)
         )
       )
   },

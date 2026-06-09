@@ -5,6 +5,7 @@ import { auditLogs, type AuditLog } from "../schema/index"
 export type AuditAction =
   | "tenant.created"
   | "tenant.status_changed"
+  | "tenant.info_updated"
   | "tenant.blocked"
   | "tenant.logo_updated"
   | "tenant.theme_updated"
