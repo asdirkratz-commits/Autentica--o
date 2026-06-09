@@ -106,7 +106,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       ipAddress:
         request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
         undefined,
-    }
+    },
+    user.fullName
   )
 
   const response = NextResponse.json({ ok: true })

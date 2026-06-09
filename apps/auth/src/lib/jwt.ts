@@ -16,6 +16,7 @@ export async function signJWT(
     role: payload.role,
     isMasterGlobal: payload.isMasterGlobal,
     permissions: payload.permissions,
+    nome: payload.nome,
   } as JosePayload)
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(payload.sub)
@@ -33,6 +34,7 @@ export async function verifyJWT(token: string): Promise<JWTPayload | null> {
       role: payload["role"] as JWTPayload["role"],
       isMasterGlobal: payload["isMasterGlobal"] as boolean,
       permissions: (payload["permissions"] as JWTPayload["permissions"]) ?? {},
+      nome: payload["nome"] as string | undefined,
       iat: payload.iat,
       exp: payload.exp,
     }

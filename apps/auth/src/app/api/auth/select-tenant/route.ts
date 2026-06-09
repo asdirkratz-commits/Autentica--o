@@ -96,7 +96,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     {
       userAgent: request.headers.get("user-agent") ?? undefined,
       ipAddress: ip,
-    }
+    },
+    user.fullName
   )
 
   await AuditRepo.log({

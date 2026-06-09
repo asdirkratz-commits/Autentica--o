@@ -20,6 +20,7 @@ export type JWTPayload = {
   role: Role
   isMasterGlobal: boolean
   permissions: UserPermissions
+  nome?: string        // nome do usuário (claim informativo; alimenta x-user-nome)
   iat?: number
   exp?: number
 }

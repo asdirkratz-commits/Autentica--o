@@ -60,6 +60,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   requestHeaders.set("x-user-id", payload.sub)
   requestHeaders.set("x-user-perms", JSON.stringify(payload.permissions ?? {}))
   requestHeaders.set("x-master-global", String(payload.isMasterGlobal ?? false))
+  if (payload.nome) requestHeaders.set("x-user-nome", payload.nome)
 
   // ── /select-tenant: precisa de x-user-id mas sem tenant ainda ────────────
   if (pathname.startsWith("/select-tenant")) {
