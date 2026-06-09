@@ -25,6 +25,7 @@ export type AuditAction =
   | "auth.login_failed"
   | "auth.password_reset_requested"
   | "auth.password_reset_completed"
+  | "auth.password_changed"
   | "master.action"
 
 export type AuditTargetType = "user" | "tenant" | "app" | "session" | "webhook"

@@ -3,8 +3,11 @@ import { headers } from "next/headers"
 import { UserRepo, AuditRepo } from "@repo/db"
 import { err, ErrorCode } from "@repo/auth-shared"
 import { hashPassword, comparePassword, validatePasswordStrength } from "@/lib/password"
+import { checkRateLimit } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // Esta rota NÃO é pública (removida de PUBLIC_PREFIXES em SEC-03): o middleware
+  // verifica o JWT e injeta x-user-id confiável. A identidade vem daí, não do client.
   const hdrs = await headers()
   const userId = hdrs.get("x-user-id")
 
@@ -12,6 +15,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       err(ErrorCode.UNAUTHORIZED, "Não autenticado", 401).error,
       { status: 401 }
+    )
+  }
+
+  // Rate limit: 5 tentativas por IP por minuto (bucket próprio, separado do login).
+  // Impede usar a verificação de senha atual como oráculo de força-bruta.
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    request.headers.get("x-real-ip") ??
+    "unknown"
+  const { allowed } = await checkRateLimit(ip, "change-password")
+  if (!allowed) {
+    return NextResponse.json(
+      err(ErrorCode.RATE_LIMITED, "Muitas tentativas. Tente novamente em 1 minuto.", 429).error,
+      { status: 429, headers: { "X-RateLimit-Remaining": "0" } }
     )
   }
 
@@ -63,7 +80,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   await AuditRepo.log({
     userId,
-    action: "auth.password_reset_completed",
+    action: "auth.password_changed",
     targetType: "user",
     targetId: userId,
     ipAddress: request.headers.get("x-forwarded-for") ?? undefined,

@@ -26,7 +26,6 @@ const PUBLIC_PREFIXES = [
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
   "/api/auth/webhooks",
-  "/api/auth/change-password",
 ]
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
@@ -64,6 +63,12 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   // ── /select-tenant: precisa de x-user-id mas sem tenant ainda ────────────
   if (pathname.startsWith("/select-tenant")) {
+    return NextResponse.next({ request: { headers: requestHeaders } })
+  }
+
+  // ── Troca de senha: self-service e tenant-agnóstica — basta identidade ────
+  // verificada (não exigir tenant selecionado, senão a rota redireciona p/ 307).
+  if (pathname.startsWith("/api/auth/change-password")) {
     return NextResponse.next({ request: { headers: requestHeaders } })
   }
 

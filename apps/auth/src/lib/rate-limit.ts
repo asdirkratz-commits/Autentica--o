@@ -1,6 +1,6 @@
 /**
  * Rate limiter — Redis quando disponível, in-memory como fallback.
- * Máximo 5 tentativas por IP por minuto em /api/auth/login.
+ * Máximo 5 tentativas por IP por minuto, por ação (login, change-password, ...).
  */
 import { env } from "@repo/auth-shared"
 
@@ -30,8 +30,9 @@ async function increment(key: string): Promise<number> {
 }
 
 export async function checkRateLimit(
-  ip: string
+  ip: string,
+  action = "login"
 ): Promise<{ allowed: boolean; remaining: number }> {
-  const current = await increment(`rate:login:${ip}`)
+  const current = await increment(`rate:${action}:${ip}`)
   return { allowed: current <= MAX_ATTEMPTS, remaining: Math.max(0, MAX_ATTEMPTS - current) }
 }
