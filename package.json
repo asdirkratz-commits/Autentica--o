@@ -9,6 +9,8 @@
     "lint": "turbo lint",
     "type-check": "turbo type-check",
     "check:tokens": "node scripts/check-token-drift.mjs",
+    "check:components": "node scripts/check-component-drift.mjs",
+    "check:design": "pnpm check:tokens && pnpm check:components",
     "db:generate": "pnpm --filter @repo/db generate",
     "db:migrate": "pnpm --filter @repo/db migrate",
     "db:migrate:prod": "pnpm --filter @repo/db migrate:prod",
