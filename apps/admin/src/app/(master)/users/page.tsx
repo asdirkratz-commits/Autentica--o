@@ -18,61 +18,47 @@ export default async function UsersPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Usuários</h1>
-        <p className="text-sm text-gray-500 mt-1">{allUsers.length} usuário(s) cadastrado(s)</p>
+      <div style={{ marginBottom: "var(--space-6)" }}>
+        <h1 className="portal-greeting">Usuários</h1>
+        <p className="portal-greeting-sub">{allUsers.length} usuário(s) cadastrado(s).</p>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="table-wrapper">
+        <table className="table">
           <thead>
-            <tr className="border-b border-gray-100 bg-gray-50">
-              <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Usuário</th>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tipo</th>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Último acesso</th>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Criado em</th>
+            <tr>
+              <th>Usuário</th>
+              <th>Tipo</th>
+              <th>Último acesso</th>
+              <th>Criado em</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody>
             {allUsers.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-6 py-10 text-center text-sm text-gray-400">
-                  Nenhum usuário cadastrado.
-                </td>
-              </tr>
+              <tr><td colSpan={4} className="table__empty">Nenhum usuário cadastrado.</td></tr>
             )}
             {allUsers.map((u) => (
-              <tr key={u.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center shrink-0">
-                      <span className="text-xs font-semibold text-gray-600 uppercase">
-                        {u.fullName.charAt(0)}
-                      </span>
-                    </div>
+              <tr key={u.id} className="table__row--hover">
+                <td>
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+                    <span className="portal-avatar" style={{ width: 32, height: 32, fontSize: 12 }}>
+                      {u.fullName.charAt(0).toUpperCase()}
+                    </span>
                     <div>
-                      <p className="font-medium text-gray-800">{u.fullName}</p>
-                      <p className="text-xs text-gray-400">{u.email}</p>
+                      <p style={{ fontWeight: 500, color: "var(--k-foreground)" }}>{u.fullName}</p>
+                      <p style={{ fontSize: 12, color: "#9ca3af" }}>{u.email}</p>
                     </div>
                   </div>
                 </td>
-                <td className="px-6 py-4">
-                  {u.isMasterGlobal ? (
-                    <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700">
-                      Master Global
-                    </span>
-                  ) : (
-                    <span className="text-xs text-gray-500">Usuário comum</span>
-                  )}
+                <td>
+                  {u.isMasterGlobal
+                    ? <span className="badge badge--master">Master Global</span>
+                    : <span style={{ fontSize: 13, color: "#6b7280" }}>Usuário comum</span>}
                 </td>
-                <td className="px-6 py-4 text-gray-500">
-                  {u.lastLoginAt
-                    ? new Date(u.lastLoginAt).toLocaleString("pt-BR")
-                    : "Nunca"}
+                <td style={{ color: "#6b7280" }}>
+                  {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString("pt-BR") : "Nunca"}
                 </td>
-                <td className="px-6 py-4 text-gray-500">
-                  {new Date(u.createdAt).toLocaleDateString("pt-BR")}
-                </td>
+                <td style={{ color: "#6b7280" }}>{new Date(u.createdAt).toLocaleDateString("pt-BR")}</td>
               </tr>
             ))}
           </tbody>
