@@ -26,7 +26,7 @@ export async function signJWT(
 
 export async function verifyJWT(token: string): Promise<JWTPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, getSecret())
+    const { payload } = await jwtVerify(token, getSecret(), { algorithms: ["HS256"] })
     return {
       sub: payload.sub!,
       tenantId: payload["tenantId"] as string,

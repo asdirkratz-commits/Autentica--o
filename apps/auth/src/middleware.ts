@@ -6,6 +6,7 @@
  * são feitas nos layouts Server Component, que rodam em Node.js runtime.
  */
 import { type NextRequest, NextResponse } from "next/server"
+import { stripIdentityHeaders } from "@repo/auth-shared"
 import { verifyJWT } from "@/lib/jwt"
 import { getAccessTokenFromCookies } from "@/lib/cookies"
 
@@ -31,9 +32,13 @@ const PUBLIC_PREFIXES = [
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl
 
+  // Base confiável: apaga qualquer header de identidade forjado pelo cliente
+  // ANTES de qualquer retorno. Vale para TODOS os caminhos, inclusive públicos.
+  const safeHeaders = stripIdentityHeaders(request.headers)
+
   // ── Rotas públicas ────────────────────────────────────────────────────────
   if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next()
+    return NextResponse.next({ request: { headers: safeHeaders } })
   }
 
   // ── 1. JWT presente? ──────────────────────────────────────────────────────
@@ -51,8 +56,8 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     return res
   }
 
-  // ── Injetar headers do usuário ────────────────────────────────────────────
-  const requestHeaders = new Headers(request.headers)
+  // ── Injetar headers do usuário (sobre a base já sanitizada) ───────────────
+  const requestHeaders = safeHeaders
   requestHeaders.set("x-user-id", payload.sub)
   requestHeaders.set("x-user-perms", JSON.stringify(payload.permissions ?? {}))
   requestHeaders.set("x-master-global", String(payload.isMasterGlobal ?? false))

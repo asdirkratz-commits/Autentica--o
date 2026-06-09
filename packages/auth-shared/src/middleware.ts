@@ -15,6 +15,7 @@
 import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
 import type { JWTPayload, TenantStatus } from "./types"
+import { stripIdentityHeaders } from "./headers"
 
 export type MiddlewareConfig = {
   /**
@@ -76,10 +77,14 @@ export function createMiddleware(config: MiddlewareConfig) {
   return async function middleware(request: NextRequest): Promise<NextResponse> {
     const { pathname } = request.nextUrl
 
+    // Base confiável: apaga headers de identidade forjados pelo cliente ANTES
+    // de qualquer retorno (inclusive rotas públicas), só re-setados após o JWT.
+    const safeHeaders = stripIdentityHeaders(request.headers)
+
     // Rotas públicas — não proteger
     const publicPaths = ["/blocked", "/favicon.ico", "/_next", "/api/auth/validate"]
     if (publicPaths.some((p) => pathname.startsWith(p))) {
-      return NextResponse.next()
+      return NextResponse.next({ request: { headers: safeHeaders } })
     }
 
     // ── 1. JWT presente e válido? ──────────────────────────────────────────────
@@ -118,7 +123,7 @@ export function createMiddleware(config: MiddlewareConfig) {
     }
 
     // ── 5. Tenant inadimplente → injetar warning ──────────────────────────────
-    const requestHeaders = new Headers(request.headers)
+    const requestHeaders = safeHeaders
     if (tenantStatus === "inadimplente") {
       requestHeaders.set("x-tenant-warning", "inadimplente")
     }
