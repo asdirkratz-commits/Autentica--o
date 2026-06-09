@@ -297,3 +297,41 @@
 .badge--neutral { background: #f3f4f6; color: #4b5563; }
 .badge--master  { background: #fef3c7; color: #b45309; }
 .badge--brand   { background: color-mix(in srgb, var(--k-color-secondary) 14%, #fff); color: var(--k-color-primary); }
+
+/* ── Tabela (contrato) ─────────────────────────────────────────────────────── */
+.table-wrapper { overflow-x: auto; border-radius: var(--radius-lg); border: 1px solid #e5e7eb; background: #fff; }
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table th { padding: var(--space-3) var(--space-4); text-align: left; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .6px; color: #6b7280; background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
+.table td { padding: var(--space-3) var(--space-4); border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+.table tbody tr:last-child td { border-bottom: none; }
+.table__row--hover:hover { background: #f9fafb; }
+.table__empty { text-align: center; color: #9ca3af; padding: var(--space-10) var(--space-4); }
+
+/* ── Variantes de botão extra ──────────────────────────────────────────────── */
+.btn--ghost { background: transparent; border-color: #d1d5db; color: var(--k-foreground); }
+.btn--ghost:hover:not(:disabled) { background: #f3f4f6; }
+.btn--success { background: var(--k-success); color: #fff; }
+.btn--success:hover:not(:disabled) { background: #15803d; }
+.btn--danger { background: var(--k-danger); color: #fff; }
+.btn--danger:hover:not(:disabled) { background: #b91c1c; }
+.btn--sm { padding: 4px var(--space-3); font-size: 12px; }
+
+/* ── Modal (contrato) ──────────────────────────────────────────────────────── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 50; padding: var(--space-4); }
+.modal { background: #fff; border-radius: var(--radius-lg); width: 100%; max-width: 460px; display: flex; flex-direction: column; max-height: 90vh; overflow-y: auto; }
+.modal__header { padding: var(--space-4) var(--space-6); border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; }
+.modal__title { font-size: 15px; font-weight: 600; color: var(--k-foreground); }
+.modal__close { background: none; border: none; cursor: pointer; color: #9ca3af; display: flex; }
+.modal__close:hover { color: var(--k-foreground); }
+.modal__body { padding: var(--space-6); }
+.modal__actions { display: flex; gap: var(--space-3); margin-top: var(--space-2); }
+
+/* ── Checkbox row ──────────────────────────────────────────────────────────── */
+.check-row { display: flex; align-items: center; gap: var(--space-2); cursor: pointer; padding: var(--space-1) 0; }
+.check-row input[type="checkbox"] { accent-color: var(--k-color-secondary); width: 15px; height: 15px; cursor: pointer; flex-shrink: 0; }
+.check-row span { font-size: 13px; color: #374151; }
+
+/* ── Info row (detalhe) ────────────────────────────────────────────────────── */
+.info-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: var(--space-1) 0; }
+.info-row__label { color: #6b7280; }
+.code-mono { font-family: monospace; }

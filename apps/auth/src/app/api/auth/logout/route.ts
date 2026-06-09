@@ -12,7 +12,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const accessToken = getAccessTokenFromCookies(request)
   const refreshToken = getRefreshTokenFromCookies(request)
 
-  const response = NextResponse.json({ ok: true })
+  // 303 → o browser faz GET em /login após limpar os cookies (funciona tanto p/
+  // o form same-origin do auth quanto p/ o form cross-app do admin).
+  const response = NextResponse.redirect(new URL("/login", request.url), 303)
   clearAuthCookies(response)
 
   if (!accessToken && !refreshToken) {

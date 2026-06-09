@@ -70,9 +70,9 @@ export default async function MasterLayout({
               <span className="sidebar__user-email">{user.email}</span>
             </div>
           </div>
-          <a href={`${authUrl}/api/auth/logout`} className="sidebar__logout">
-            Sair
-          </a>
+          <form action={`${authUrl}/api/auth/logout`} method="POST">
+            <button type="submit" className="sidebar__logout">Sair</button>
+          </form>
         </div>
       </aside>
 
