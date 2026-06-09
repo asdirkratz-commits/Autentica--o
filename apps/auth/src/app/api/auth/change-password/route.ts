@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { headers } from "next/headers"
 import { UserRepo, AuditRepo } from "@repo/db"
-import { err, ErrorCode } from "@repo/auth-shared"
+import { err, ErrorCode, enforceSameOrigin } from "@repo/auth-shared"
 import { hashPassword, comparePassword, validatePasswordStrength } from "@/lib/password"
 import { checkRateLimit } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const csrf = enforceSameOrigin(request)
+  if (csrf) return csrf
+
   // Esta rota NÃO é pública (removida de PUBLIC_PREFIXES em SEC-03): o middleware
   // verifica o JWT e injeta x-user-id confiável. A identidade vem daí, não do client.
   const hdrs = await headers()

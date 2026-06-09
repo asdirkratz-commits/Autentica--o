@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { RefreshTokenRepo, UserRepo } from "@repo/db"
-import { err, ErrorCode } from "@repo/auth-shared"
+import { err, ErrorCode, enforceSameOrigin } from "@repo/auth-shared"
 import { verifyJWT, hashToken } from "@/lib/jwt"
 import { createSession, revokeSession } from "@/lib/session"
 import { setAuthCookies, clearAuthCookies, getRefreshTokenFromCookies } from "@/lib/cookies"
 import { cache } from "@/lib/redis"
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const csrf = enforceSameOrigin(request)
+  if (csrf) return csrf
+
   const refreshToken = getRefreshTokenFromCookies(request)
 
   if (!refreshToken) {

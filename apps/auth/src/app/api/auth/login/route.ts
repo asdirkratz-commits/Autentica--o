@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { UserRepo, AuditRepo, TenantRepo } from "@repo/db"
-import { err, ErrorCode } from "@repo/auth-shared"
+import { err, ErrorCode, enforceSameOrigin } from "@repo/auth-shared"
 import { comparePassword } from "@/lib/password"
 import { createSession } from "@/lib/session"
 import { setAuthCookies } from "@/lib/cookies"
@@ -8,6 +8,9 @@ import { checkRateLimit } from "@/lib/rate-limit"
 import { cache } from "@/lib/redis"
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const csrf = enforceSameOrigin(request)
+  if (csrf) return csrf
+
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     request.headers.get("x-real-ip") ??

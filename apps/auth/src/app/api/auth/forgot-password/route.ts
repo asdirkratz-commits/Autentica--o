@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { UserRepo, AuditRepo, PasswordResetRepo } from "@repo/db"
-import { err, ErrorCode } from "@repo/auth-shared"
+import { err, ErrorCode, enforceSameOrigin } from "@repo/auth-shared"
 import { hashToken } from "@/lib/jwt"
 import { randomBytes } from "crypto"
 
 // POST /api/auth/forgot-password — solicitar reset de senha
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const csrf = enforceSameOrigin(request)
+  if (csrf) return csrf
+
   let body: { email?: string }
   try {
     body = (await request.json()) as typeof body

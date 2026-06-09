@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { TenantRepo, AuditRepo } from "@repo/db"
-import { err, ErrorCode } from "@repo/auth-shared"
+import { err, ErrorCode, enforceSameOrigin } from "@repo/auth-shared"
 import { requireMasterGlobalApi } from "@/lib/api-guard"
 import { cache } from "@/lib/redis"
 import { revokeAllTenantSessions } from "@/lib/session"
@@ -13,6 +13,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
+  const csrf = enforceSameOrigin(request)
+  if (csrf) return csrf
+
   const guard = await requireMasterGlobalApi()
   if (!guard.ok) return guard.response
   const userId = guard.userId

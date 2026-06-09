@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { TenantRepo, AuditRepo } from "@repo/db"
 import {
-  err, ErrorCode,
+  err, ErrorCode, enforceSameOrigin,
   encryptApiKey, serializeAiConfig, deserializeAiConfig, toPublicAiConfig,
   type AiProvider, type AiConfig,
 } from "@repo/auth-shared"
@@ -18,6 +18,9 @@ const VALID_PROVIDERS: AiProvider[] = ["openai", "gemini", "claude"]
 
 // PATCH /api/admin/tenants/[id]/ai-config — salva configuração de IA (criptografada)
 export async function PATCH(request: NextRequest, { params }: Params): Promise<NextResponse> {
+  const csrf = enforceSameOrigin(request)
+  if (csrf) return csrf
+
   const guard = await requireMasterGlobalApi()
   if (!guard.ok) return guard.response
   const userId = guard.userId

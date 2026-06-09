@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { UserRepo, AuditRepo, PasswordResetRepo } from "@repo/db"
-import { err, ErrorCode } from "@repo/auth-shared"
+import { err, ErrorCode, enforceSameOrigin } from "@repo/auth-shared"
 import { hashToken } from "@/lib/jwt"
 import { hashPassword, validatePasswordStrength } from "@/lib/password"
 
 // POST /api/auth/reset-password — redefinir senha com token
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const csrf = enforceSameOrigin(request)
+  if (csrf) return csrf
+
   let body: { token?: string; password?: string }
   try {
     body = (await request.json()) as typeof body

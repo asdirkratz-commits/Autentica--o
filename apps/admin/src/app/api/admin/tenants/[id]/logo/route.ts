@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { TenantRepo, AuditRepo } from "@repo/db"
-import { err, ErrorCode } from "@repo/auth-shared"
+import { err, ErrorCode, enforceSameOrigin } from "@repo/auth-shared"
 import { requireMasterGlobalApi } from "@/lib/api-guard"
 
 const MAX_SIZE_BYTES = 2 * 1024 * 1024 // 2 MB
@@ -20,6 +20,9 @@ type Params = { params: Promise<{ id: string }> }
  * ou substitua pelo seu provider de object storage (S3, R2, etc.)
  */
 export async function POST(request: NextRequest, { params }: Params): Promise<NextResponse> {
+  const csrf = enforceSameOrigin(request)
+  if (csrf) return csrf
+
   const guard = await requireMasterGlobalApi()
   if (!guard.ok) return guard.response
   const userId = guard.userId
@@ -128,6 +131,9 @@ export async function POST(request: NextRequest, { params }: Params): Promise<Ne
 
 // PATCH mantido para compatibilidade (URL manual)
 export async function PATCH(request: NextRequest, { params }: Params): Promise<NextResponse> {
+  const csrf = enforceSameOrigin(request)
+  if (csrf) return csrf
+
   const guard = await requireMasterGlobalApi()
   if (!guard.ok) return guard.response
   const userId = guard.userId

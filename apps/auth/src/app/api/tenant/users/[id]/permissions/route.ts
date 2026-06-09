@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { UserRepo, AuditRepo } from "@repo/db"
-import { err, ErrorCode } from "@repo/auth-shared"
+import { err, ErrorCode, enforceSameOrigin } from "@repo/auth-shared"
 import { requireActiveTenantMember } from "@/lib/api-guard"
 import type { UserPermissions } from "@repo/auth-shared"
 
@@ -9,6 +9,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
+  const csrf = enforceSameOrigin(request)
+  if (csrf) return csrf
+
   const guard = await requireActiveTenantMember()
   if (!guard.ok) return guard.response
   const { userId: actorId, tenantId, role: actorRole } = guard.ctx

@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { AuditRepo } from "@repo/db"
+import { enforceSameOrigin } from "@repo/auth-shared"
 import { verifyJWT } from "@/lib/jwt"
 import { revokeSession } from "@/lib/session"
 import { clearAuthCookies, getAccessTokenFromCookies, getRefreshTokenFromCookies } from "@/lib/cookies"
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const csrf = enforceSameOrigin(request)
+  if (csrf) return csrf
+
   const accessToken = getAccessTokenFromCookies(request)
   const refreshToken = getRefreshTokenFromCookies(request)
 

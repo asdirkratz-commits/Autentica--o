@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { UserRepo, TenantRepo, AuditRepo } from "@repo/db"
-import { err, ErrorCode } from "@repo/auth-shared"
+import { err, ErrorCode, enforceSameOrigin } from "@repo/auth-shared"
 import { verifyJWT } from "@/lib/jwt"
 import { getAccessTokenFromCookies, setAuthCookies } from "@/lib/cookies"
 import { createSession } from "@/lib/session"
@@ -8,6 +8,9 @@ import { cache } from "@/lib/redis"
 
 // POST /api/auth/select-tenant — trocar de tenant após login com múltiplos tenants
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const csrf = enforceSameOrigin(request)
+  if (csrf) return csrf
+
   const token = getAccessTokenFromCookies(request)
   if (!token) {
     return NextResponse.json(

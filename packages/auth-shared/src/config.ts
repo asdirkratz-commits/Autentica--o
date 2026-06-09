@@ -24,6 +24,15 @@ export const env = {
   get NEXT_PUBLIC_AUTH_URL() {
     return process.env.NEXT_PUBLIC_AUTH_URL ?? ""
   },
+  get NEXT_PUBLIC_ADMIN_URL() {
+    return process.env.NEXT_PUBLIC_ADMIN_URL ?? ""
+  },
+  get NEXT_PUBLIC_KONTOHUB_URL() {
+    return process.env.NEXT_PUBLIC_KONTOHUB_URL ?? ""
+  },
+  get NEXT_PUBLIC_KONTOZAP_URL() {
+    return process.env.NEXT_PUBLIC_KONTOZAP_URL ?? ""
+  },
   get REDIS_URL() {
     return process.env.REDIS_URL ?? ""
   },
