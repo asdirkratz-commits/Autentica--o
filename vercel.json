@@ -2,5 +2,5 @@
   "buildCommand": "pnpm turbo run build --filter=@repo/auth",
   "outputDirectory": "apps/auth/.next",
   "installCommand": "pnpm install",
-  "ignoreCommand": "exit 0"
+  "ignoreCommand": "exit 1"
 }
