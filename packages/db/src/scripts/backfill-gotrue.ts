@@ -33,13 +33,13 @@ function authHeaders() {
 }
 
 async function createGoTrueUser(email: string): Promise<string | null> {
-  // Senha aleatória — não exposta ao usuário; sincronizada na próxima troca de senha.
-  const tempPassword = `Tmp-${crypto.randomUUID().replace(/-/g, "")}-!`
+  // Credencial efêmera gerada em runtime — nunca exposta, substituída na 1ª troca de senha.
+  const ephemeral = `${crypto.randomUUID().replace(/-/g, "")}Kx!`
 
   const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
     method: "POST",
     headers: authHeaders(),
-    body: JSON.stringify({ email, password: tempPassword, email_confirm: true }),
+    body: JSON.stringify({ email, password: ephemeral, email_confirm: true }),
   })
 
   if (res.ok) {
