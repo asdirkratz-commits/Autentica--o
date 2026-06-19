@@ -4,6 +4,7 @@ import { err, ErrorCode, enforceSameOrigin } from "@repo/auth-shared"
 import { hashToken } from "@/lib/jwt"
 import { hashPassword, validatePasswordStrength } from "@/lib/password"
 import { revokeAllUserSessions } from "@/lib/session"
+import { updateGoTruePassword } from "@/lib/supabase-user-tenants"
 
 // POST /api/auth/reset-password — redefinir senha com token
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -67,22 +68,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const newHash = await hashPassword(password)
 
-  // Atualiza GoTrue via Admin API (usa goTrueId real do user, não tokenUserId)
-  const supabaseUrl = process.env.SUPABASE_URL
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (supabaseUrl && supabaseKey && user.goTrueId) {
-    const res = await fetch(`${supabaseUrl}/auth/v1/admin/users/${user.goTrueId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${supabaseKey}`,
-        apikey: supabaseKey,
-      },
-      body: JSON.stringify({ password }),
-    })
-    if (!res.ok) {
-      console.error("[reset-password] GoTrue update falhou — status:", res.status)
-    }
+  if (user.goTrueId) {
+    const goTrueOk = await updateGoTruePassword(user.goTrueId, password)
+    if (!goTrueOk) console.warn("[reset-password] GoTrue sync falhou — Neon atualizado, GoTrue divergente")
   }
 
   // Atualiza bcrypt Neon (usa Neon user.id)

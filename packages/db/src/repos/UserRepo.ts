@@ -1,4 +1,4 @@
-import { eq, and, or } from "drizzle-orm"
+import { eq, and, or, isNull, sql } from "drizzle-orm"
 import { db } from "../client"
 import {
   users,
@@ -201,6 +201,21 @@ export const UserRepo = {
       .where(eq(userTenants.tenantId, tenantId))
       .orderBy(userTenants.invitedAt)
     return rows.map((r) => ({ ...r, permissions: (r.permissions ?? {}) as UserPermissions }))
+  },
+
+  async findAllWithoutGoTrueId(): Promise<Pick<User, 'id' | 'email'>[]> {
+    return db
+      .select({ id: users.id, email: users.email })
+      .from(users)
+      .where(isNull(users.goTrueId))
+  },
+
+  async countWithoutGoTrueId(): Promise<number> {
+    const rows = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(isNull(users.goTrueId))
+    return rows[0]?.count ?? 0
   },
 
   async updateRole(

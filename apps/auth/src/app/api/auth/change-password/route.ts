@@ -6,7 +6,7 @@ import { hashPassword, validatePasswordStrength } from "@/lib/password"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { revokeOtherUserSessions } from "@/lib/session"
 import { getRefreshTokenFromCookies } from "@/lib/cookies"
-import { validateGoTruePassword } from "@/lib/supabase-user-tenants"
+import { validateGoTruePassword, updateGoTruePassword } from "@/lib/supabase-user-tenants"
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const csrf = enforceSameOrigin(request)
@@ -89,22 +89,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const newHash = await hashPassword(newPassword)
 
-  // Atualiza GoTrue (primário) via Admin API
-  const supabaseUrl = process.env.SUPABASE_URL
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (supabaseUrl && supabaseKey && user.goTrueId) {
-    const res = await fetch(`${supabaseUrl}/auth/v1/admin/users/${user.goTrueId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${supabaseKey}`,
-        apikey: supabaseKey,
-      },
-      body: JSON.stringify({ password: newPassword }),
-    })
-    if (!res.ok) {
-      console.error("[change-password] GoTrue update falhou — status:", res.status)
-    }
+  if (user.goTrueId) {
+    const goTrueOk = await updateGoTruePassword(user.goTrueId, newPassword)
+    if (!goTrueOk) console.warn("[change-password] GoTrue sync falhou — Neon atualizado, GoTrue divergente")
   }
 
   // Atualiza bcrypt Neon usando Neon user.id (não userId que pode ser GoTrue UUID)

@@ -11,7 +11,8 @@
     "apply-pending": "tsx --env-file ../../.env.local src/apply-pending.ts",
     "migrate:prod": "NODE_ENV=production tsx --env-file ../../.env.local src/migrate.ts",
     "seed": "tsx src/seed.ts",
-    "studio": "drizzle-kit studio"
+    "studio": "drizzle-kit studio",
+    "backfill:gotrue": "tsx --env-file ../../apps/auth/.env.local src/scripts/backfill-gotrue.ts"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",
