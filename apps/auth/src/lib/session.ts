@@ -24,7 +24,8 @@ export async function createSession(
   isMasterGlobal: boolean,
   permissions: JWTPayload["permissions"],
   meta: SessionMeta,
-  fullName: string
+  fullName: string,
+  modulos?: string[],
 ): Promise<{ tokens: TokenPair; refreshExpiresAt: Date }> {
   const jwtPayload: Omit<JWTPayload, "iat" | "exp"> = {
     sub: userId,
@@ -33,6 +34,7 @@ export async function createSession(
     isMasterGlobal,
     permissions,
     nome: fullName,
+    modulos,
   }
 
   const accessToken = await signJWT(jwtPayload, env.JWT_ACCESS_EXPIRES)

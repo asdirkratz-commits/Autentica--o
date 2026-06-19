@@ -21,6 +21,7 @@ export type JWTPayload = {
   isMasterGlobal: boolean
   permissions: UserPermissions
   nome?: string        // nome do usuário (claim informativo; alimenta x-user-nome)
+  modulos?: string[]   // módulos liberados para o usuário no tenant (ex: ['itr','nfe'] ou ['*'])
   aud?: string[]       // audience: apps p/ os quais o token é válido (F-08). Ex.: ["auth","kontohub","admin"]
   iat?: number
   exp?: number

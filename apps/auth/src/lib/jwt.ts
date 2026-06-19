@@ -11,13 +11,16 @@ export async function signJWT(
   payload: Omit<JWTPayload, "iat" | "exp">,
   expiresIn: string
 ): Promise<string> {
-  return new SignJWT({
+  const claims: JosePayload = {
     tenantId: payload.tenantId,
     role: payload.role,
     isMasterGlobal: payload.isMasterGlobal,
     permissions: payload.permissions,
     nome: payload.nome,
-  } as JosePayload)
+  }
+  if (payload.modulos !== undefined) claims['modulos'] = payload.modulos
+
+  return new SignJWT(claims)
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(payload.sub)
     .setAudience(buildAudience(payload.isMasterGlobal)) // F-08: apps p/ os quais o token vale

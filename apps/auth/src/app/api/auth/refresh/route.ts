@@ -5,6 +5,7 @@ import { verifyJWT, hashToken } from "@/lib/jwt"
 import { createSession, revokeSession, revokeAllUserSessions } from "@/lib/session"
 import { setAuthCookies, clearAuthCookies, getRefreshTokenFromCookies } from "@/lib/cookies"
 import { cache } from "@/lib/redis"
+import { getSupabaseUserTenants } from "@/lib/supabase-user-tenants"
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const csrf = enforceSameOrigin(request)
@@ -95,6 +96,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     : null
   const permissions = (userTenant?.permissions ?? {}) as Record<string, boolean>
 
+  // Re-buscar modulos do Supabase user_tenants para manter claim atualizado na rotação
+  const supabaseTenants = await getSupabaseUserTenants(user.email)
+  const modulos = supabaseTenants?.tenants.find(t => t.tenantId === sessionTenantId)?.modulos
+
   const { tokens, refreshExpiresAt } = await createSession(
     user.id,
     sessionTenantId,
@@ -107,7 +112,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
         undefined,
     },
-    user.fullName
+    user.fullName,
+    modulos,
   )
 
   const response = NextResponse.json({ ok: true })
