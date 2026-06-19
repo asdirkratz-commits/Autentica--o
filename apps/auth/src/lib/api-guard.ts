@@ -51,7 +51,8 @@ export async function requireActiveTenantMember(): Promise<TenantGuardResult> {
   const membership = await UserRepo.getUserRoleInTenant(userId, tenantId)
 
   if (claimsMaster) {
-    const user = await UserRepo.findById(userId)
+    // x-user-id = GoTrue UUID (JWT sub) → buscar por gotrue_id, não por users.id (id Neon).
+    const user = await UserRepo.findByGoTrueId(userId)
     if (!user || !user.isMasterGlobal) {
       return deny(ErrorCode.FORBIDDEN, "Acesso negado", 403)
     }

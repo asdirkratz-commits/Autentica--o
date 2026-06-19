@@ -10,7 +10,8 @@ export default async function ProfilePage() {
 
   if (!userId) redirect("/login")
 
-  const user = await UserRepo.findById(userId)
+  // x-user-id = GoTrue UUID (JWT sub) → buscar por gotrue_id, não por users.id (id Neon).
+  const user = await UserRepo.findByGoTrueId(userId)
   if (!user) redirect("/login")
 
   // Flag master viva (do banco); rótulo de papel é cosmético (admin/user)

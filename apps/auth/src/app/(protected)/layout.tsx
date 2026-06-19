@@ -18,7 +18,8 @@ export default async function ProtectedLayout({
   if (!userId) redirect("/login")
   if (!tenantId && !isMasterGlobal) redirect("/select-tenant")
 
-  const user = await UserRepo.findById(userId)
+  // x-user-id = GoTrue UUID (JWT sub) → buscar por gotrue_id, não por users.id (id Neon).
+  const user = await UserRepo.findByGoTrueId(userId)
   if (!user) redirect("/login")
 
   const tenant = tenantId ? await TenantRepo.findById(tenantId) : null

@@ -5,7 +5,7 @@ import { verifyJWT, hashToken } from "@/lib/jwt"
 import { createSession, revokeSession, revokeAllUserSessions } from "@/lib/session"
 import { setAuthCookies, clearAuthCookies, getRefreshTokenFromCookies } from "@/lib/cookies"
 import { cache } from "@/lib/redis"
-import { getSupabaseUserTenantsByGoTrueId } from "@/lib/supabase-user-tenants"
+import { getSupabaseUserTenantsByGoTrueId, getGoTrueUserById } from "@/lib/supabase-user-tenants"
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const csrf = enforceSameOrigin(request)
@@ -114,12 +114,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     : null
   const modulos = supabaseTenants?.find(t => t.tenantId === sessionTenantId)?.modulos
 
+  // R2: perfil global do GoTrue (primário) → Neon (fallback até o cutover)
+  const gtProfile = await getGoTrueUserById(payload.sub)
+  const isMasterGlobal = gtProfile?.isMasterGlobal ?? user.isMasterGlobal
+  const fullName = gtProfile?.fullName ?? user.fullName
+
   // sub = payload.sub (GoTrue UUID) — não usar user.id (Neon UUID) aqui
   const { tokens, refreshExpiresAt } = await createSession(
     payload.sub,
     sessionTenantId,
     payload.role,
-    user.isMasterGlobal,
+    isMasterGlobal,
     permissions,
     {
       userAgent: request.headers.get("user-agent") ?? undefined,
@@ -127,7 +132,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
         undefined,
     },
-    user.fullName,
+    fullName,
     modulos,
   )
 

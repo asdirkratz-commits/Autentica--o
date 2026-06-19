@@ -165,3 +165,53 @@ export async function updateGoTruePassword(goTrueId: string, password: string): 
   }
 }
 
+/**
+ * Perfil GLOBAL do usuário derivado do GoTrue (auth.users).
+ * `is_master_global` e `full_name` vivem em app_metadata (controlado pelo servidor —
+ * o usuário não consegue adulterar via user_metadata). Fonte canônica pós-aposentadoria
+ * do Neon `users`. R2: usado como PRIMÁRIO; o Neon `users` segue como fallback até o cutover.
+ */
+export type GoTrueProfile = {
+  id: string
+  email: string | null
+  isMasterGlobal: boolean
+  fullName: string | null
+  avatarUrl: string | null
+}
+
+/**
+ * Busca o perfil de um usuário pelo GoTrue UUID via Admin API.
+ * Retorna null se env ausente, usuário inexistente, ou falha de rede (soft-fail) —
+ * o caller faz fallback para o Neon nesse caso.
+ */
+export async function getGoTrueUserById(goTrueId: string): Promise<GoTrueProfile | null> {
+  const env = getEnv()
+  if (!env) return null
+
+  try {
+    const res = await fetch(`${env.url}/auth/v1/admin/users/${encodeURIComponent(goTrueId)}`, {
+      headers: headers(env.key),
+    })
+    if (!res.ok) return null
+    const u = (await res.json()) as {
+      id?: string
+      email?: string
+      app_metadata?: { is_master_global?: boolean; full_name?: string }
+      user_metadata?: { nome?: string; full_name?: string; avatar_url?: string }
+    }
+    if (!u.id) return null
+    const app = u.app_metadata ?? {}
+    const meta = u.user_metadata ?? {}
+    return {
+      id: u.id,
+      email: u.email ?? null,
+      isMasterGlobal: app.is_master_global === true,
+      fullName: app.full_name ?? meta.full_name ?? meta.nome ?? null,
+      avatarUrl: meta.avatar_url ?? null,
+    }
+  } catch (err) {
+    console.error('[supabase-user-tenants] Erro ao buscar perfil GoTrue:', err)
+    return null
+  }
+}
+

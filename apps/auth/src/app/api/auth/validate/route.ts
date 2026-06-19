@@ -44,8 +44,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       )
     }
 
-    // is_master_global verificado SEMPRE na tabela users — nunca no JWT
-    const user = await UserRepo.findById(payload.sub)
+    // is_master_global verificado SEMPRE no backing store — nunca no JWT.
+    // payload.sub = GoTrue UUID → buscar por gotrue_id (não por users.id, que é o id Neon).
+    const user = await UserRepo.findByGoTrueId(payload.sub)
     if (!user) {
       return NextResponse.json(
         err(ErrorCode.NOT_FOUND, "Usuário não encontrado", 404).error,
@@ -71,7 +72,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     })
   }
 
-  const user = await UserRepo.findById(payload.sub)
+  // payload.sub = GoTrue UUID → buscar por gotrue_id.
+  const user = await UserRepo.findByGoTrueId(payload.sub)
   if (!user) {
     return NextResponse.json(
       err(ErrorCode.NOT_FOUND, "Usuário não encontrado", 404).error,

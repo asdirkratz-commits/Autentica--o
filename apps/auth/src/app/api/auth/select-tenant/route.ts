@@ -5,7 +5,7 @@ import { verifyJWT } from "@/lib/jwt"
 import { getAccessTokenFromCookies, setAuthCookies } from "@/lib/cookies"
 import { createSession } from "@/lib/session"
 import { cache } from "@/lib/redis"
-import { getSupabaseUserTenantsByGoTrueId } from "@/lib/supabase-user-tenants"
+import { getSupabaseUserTenantsByGoTrueId, getGoTrueUserById } from "@/lib/supabase-user-tenants"
 
 // POST /api/auth/select-tenant — trocar de tenant após login com múltiplos tenants
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -111,17 +111,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown"
 
+  // R2: perfil global do GoTrue (primário) → Neon (fallback até o cutover)
+  const gtProfile = await getGoTrueUserById(payload.sub)
+  const isMasterGlobal = gtProfile?.isMasterGlobal ?? neonUser.isMasterGlobal
+  const fullName = gtProfile?.fullName ?? neonUser.fullName
+
   const { tokens, refreshExpiresAt } = await createSession(
     payload.sub, // GoTrue UUID
     tenantId,
     selectedRole,
-    neonUser.isMasterGlobal,
+    isMasterGlobal,
     permissions,
     {
       userAgent: request.headers.get("user-agent") ?? undefined,
       ipAddress: ip,
     },
-    neonUser.fullName,
+    fullName,
     modulos,
   )
 

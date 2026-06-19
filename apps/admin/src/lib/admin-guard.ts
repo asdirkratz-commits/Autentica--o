@@ -21,7 +21,8 @@ export async function requireMasterGlobal(): Promise<AdminUser> {
     redirect(`${process.env.NEXT_PUBLIC_AUTH_URL ?? "http://localhost:3001"}/login`)
   }
 
-  const user = await UserRepo.findById(userId)
+  // x-user-id = GoTrue UUID (JWT sub) → buscar por gotrue_id, não por users.id (id Neon).
+  const user = await UserRepo.findByGoTrueId(userId)
 
   if (!user || !user.isMasterGlobal) {
     redirect(`${process.env.NEXT_PUBLIC_AUTH_URL ?? "http://localhost:3001"}/login`)

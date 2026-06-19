@@ -9,6 +9,7 @@ import { cache } from "@/lib/redis"
 import {
   validateGoTruePassword,
   getSupabaseUserTenantsByGoTrueId,
+  getGoTrueUserById,
 } from "@/lib/supabase-user-tenants"
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -82,6 +83,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
   const jwtSub = goTrueId
 
+  // ── Perfil global: GoTrue (primário) → Neon users (fallback até o cutover) ──
+  // R2: is_master_global/full_name passam a vir do GoTrue app_metadata. O Neon
+  // continua como rede de segurança enquanto não for decomissionado (R4).
+  const gtProfile = await getGoTrueUserById(jwtSub)
+  const isMasterGlobal = gtProfile?.isMasterGlobal ?? neonUser.isMasterGlobal
+  const fullName = gtProfile?.fullName ?? neonUser.fullName
+
   // ── Determinar tenant + modulos ──────────────────────────────────────────
   type TenantEntry = { tenantId: string; role: string; status: string; permissions: Record<string, boolean>; modulos: string[] }
 
@@ -105,7 +113,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       permissions: (t.permissions ?? {}) as Record<string, boolean>,
       modulos: [],
     }))
-    if (!neonUser.isMasterGlobal && neonTenants.length > 0) {
+    if (!isMasterGlobal && neonTenants.length > 0) {
       console.warn('[login] modulos=[]: fallback Neon — SUPABASE env ausente ou usuário sem GoTrue entry')
     }
   }
@@ -135,7 +143,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         requiresTenantSelection: true,
         tenants: tenantDetails,
       })
-    } else if (neonUser.isMasterGlobal) {
+    } else if (isMasterGlobal) {
       selectedTenantId = undefined
     } else {
       return NextResponse.json(
@@ -172,13 +180,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     jwtSub,
     selectedTenantId,
     selectedRole,
-    neonUser.isMasterGlobal,
+    isMasterGlobal,
     permissions,
     {
       userAgent: request.headers.get("user-agent") ?? undefined,
       ipAddress: ip,
     },
-    neonUser.fullName,
+    fullName,
     modulos,
   )
 
