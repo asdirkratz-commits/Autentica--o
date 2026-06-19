@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { UserRepo, AuditRepo, InviteTokenRepo } from "@repo/db"
 import { err, ErrorCode, enforceSameOrigin } from "@repo/auth-shared"
 import { hashToken } from "@/lib/jwt"
-import { hashPassword, validatePasswordStrength } from "@/lib/password"
-import { createGoTrueUser, updateGoTruePassword } from "@/lib/supabase-user-tenants"
+import { validatePasswordStrength } from "@/lib/password"
+import { updateGoTruePassword } from "@/lib/supabase-user-tenants"
 
 // POST /api/auth/invite — aceitar convite e definir senha
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -54,33 +54,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  const passwordHash = await hashPassword(password)
-
-  // Verificar se usuário já existe
+  // Identidade no GoTrue (auth.users). Se o usuário não existe, cria com a senha
+  // do convite; se já existe, atualiza a senha. user.id = GoTrue UUID.
   let user = await UserRepo.findByEmail(invite.email)
 
   if (!user) {
     user = await UserRepo.create({
       email: invite.email,
-      passwordHash,
+      password,
       fullName: fullName ?? invite.email,
     })
   } else {
-    await UserRepo.updatePassword(user.id, passwordHash)
-  }
-
-  // Sincronizar com GoTrue para que o login primário funcione após aceitar o convite
-  if (!user.goTrueId) {
-    const goTrueId = await createGoTrueUser(invite.email, password)
-    if (goTrueId) {
-      await UserRepo.setGoTrueId(user.id, goTrueId)
-      // Se o user já existia no GoTrue (createGoTrueUser retornou UUID via 422),
-      // a senha do GoTrue não foi atualizada na criação — forçar update para sincronia.
-      await updateGoTruePassword(goTrueId, password)
-    }
-  } else {
-    // Usuário já tem conta GoTrue — atualiza senha via Admin API
-    await updateGoTruePassword(user.goTrueId, password)
+    await updateGoTruePassword(user.id, password)
   }
 
   // Ativar usuário no tenant
