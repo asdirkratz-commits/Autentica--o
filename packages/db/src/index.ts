@@ -12,7 +12,7 @@ export { AuditRepo } from "./repos/AuditRepo"
 export { InviteTokenRepo } from "./repos/InviteTokenRepo"
 export { PasswordResetRepo } from "./repos/PasswordResetRepo"
 
-export type { TenantFilters, CreateTenantDTO } from "./repos/TenantRepo"
+export type { Tenant, TenantFilters, TenantAddress, CreateTenantDTO } from "./repos/TenantRepo"
 export type { CreateUserDTO, TenantMember } from "./repos/UserRepo"
 export type { CreateRefreshTokenDTO } from "./repos/RefreshTokenRepo"
 export type { CreateAppDTO } from "./repos/AppRepo"

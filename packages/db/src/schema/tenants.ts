@@ -51,5 +51,9 @@ export const tenants = pgTable(
   })
 )
 
-export type Tenant = typeof tenants.$inferSelect
-export type NewTenant = typeof tenants.$inferInsert
+// Tipos inferidos do schema Drizzle. Mantidos sob nomes "*Row" para uso interno
+// (migrations/seed/Drizzle). O tipo de DOMÍNIO `Tenant` exportado pelo pacote vem
+// do TenantRepo (Supabase) — ver repos/TenantRepo.ts — para não conflitar nem
+// vazar o shape da linha Drizzle (que não reflete mais a fonte de dados real).
+export type TenantRowDrizzle = typeof tenants.$inferSelect
+export type NewTenantRowDrizzle = typeof tenants.$inferInsert
