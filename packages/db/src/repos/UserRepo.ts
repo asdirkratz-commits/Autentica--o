@@ -1,12 +1,20 @@
-import { eq, and, or, isNull, sql } from "drizzle-orm"
-import { db } from "../client"
-import {
-  users,
-  userTenants,
-  type User,
-  type UserTenant,
-  type UserPermissions,
-} from "../schema/index"
+/**
+ * UserRepo — Supabase (auth.users via GoTrue Admin API + public.user_tenants REST)
+ * Migrado do Neon na P5/R4c. IDENTIDADE UNIFICADA EM GoTrue id:
+ *   - `User.id` AGORA É o GoTrue UUID (= auth.users.id = JWT sub). Não há mais "id Neon".
+ *   - perfil/senha/email/master vêm de auth.users (app_metadata, server-controlled);
+ *   - memberships vêm de public.user_tenants (chaveado por auth.users.id).
+ *
+ * Reconciliação de vocabulário (user_tenants é compartilhado com o KontoHub):
+ *   role:   admin ⇄ Administrador · user ⇄ Colaborador · (Master → admin na leitura)
+ *   status: active ⇄ ativo · inactive ⇄ inativo · pending ⇄ pendente · (bloqueado → inactive)
+ *
+ * Senha: o GoTrue é o único validador. Os fluxos (login/invite/reset/change) já chamam
+ * o GoTrue diretamente; os métodos de senha aqui (updatePassword/...) viram no-op.
+ */
+import { supabase } from "../supabase-client"
+import { goTrueAdmin, type GoTrueUser } from "../gotrue-admin"
+import { type User, type UserTenant, type UserPermissions } from "../schema/index"
 
 export type TenantMember = {
   userId: string
@@ -26,211 +34,229 @@ type UserStatus = "active" | "inactive" | "pending"
 
 export type CreateUserDTO = {
   email: string
-  passwordHash: string
+  /** Plaintext — o GoTrue é quem armazena/valida a senha (não há mais hash no Neon). */
+  password: string
   fullName: string
   isMasterGlobal?: boolean
   avatarUrl?: string
 }
 
+type UserTenantRow = {
+  user_id: string
+  tenant_id: string
+  role: "Master" | "Administrador" | "Colaborador"
+  status: "ativo" | "inativo" | "bloqueado" | "pendente"
+  permissions: unknown
+  invited_by: string | null
+  invited_at: string
+  activated_at: string | null
+  nome: string | null
+  modulos: string[]
+}
+
+function enc(v: string): string {
+  return encodeURIComponent(v)
+}
+
+// ── Mapeamentos de vocabulário ───────────────────────────────────────────────
+function roleToLegacy(role: string): Role {
+  return role === "Colaborador" ? "user" : "admin" // Master/Administrador → admin
+}
+function roleToSupabase(role: Role): "Administrador" | "Colaborador" {
+  return role === "admin" ? "Administrador" : "Colaborador"
+}
+function statusToLegacy(s: string): UserStatus {
+  if (s === "ativo") return "active"
+  if (s === "pendente") return "pending"
+  return "inactive" // inativo | bloqueado
+}
+function statusToSupabase(s: UserStatus): "ativo" | "inativo" | "pendente" {
+  if (s === "active") return "ativo"
+  if (s === "pending") return "pendente"
+  return "inativo"
+}
+
+// ── Construtores de tipos de domínio ─────────────────────────────────────────
+function toUser(gt: GoTrueUser): User {
+  return {
+    id: gt.id, // GoTrue UUID — chave canônica
+    email: gt.email ?? "",
+    passwordHash: "", // não exposto: o GoTrue valida a senha
+    fullName: gt.fullName ?? "",
+    isMasterGlobal: gt.isMasterGlobal,
+    avatarUrl: gt.avatarUrl,
+    lastLoginAt: gt.lastSignInAt,
+    goTrueId: gt.id,
+    createdAt: gt.createdAt,
+    updatedAt: gt.updatedAt,
+  }
+}
+
+function toUserTenant(r: UserTenantRow): UserTenant {
+  return {
+    userId: r.user_id,
+    tenantId: r.tenant_id,
+    role: roleToLegacy(r.role),
+    status: statusToLegacy(r.status),
+    permissions: (r.permissions ?? {}) as UserTenant["permissions"],
+    invitedBy: r.invited_by,
+    invitedAt: new Date(r.invited_at),
+    activatedAt: r.activated_at ? new Date(r.activated_at) : null,
+  }
+}
+
+const UT_COLS = "user_id,tenant_id,role,status,permissions,invited_by,invited_at,activated_at,nome,modulos"
+
 export const UserRepo = {
+  // ── Perfil (GoTrue) ────────────────────────────────────────────────────────
+  /** Busca por GoTrue UUID (= User.id pós-R4c). */
   async findById(id: string): Promise<User | null> {
-    const rows = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, id))
-      .limit(1)
-    return rows[0] ?? null
+    const gt = await goTrueAdmin.getById(id)
+    return gt ? toUser(gt) : null
   },
 
+  /** Alias explícito — id já É o GoTrue id; mantido para os call sites existentes. */
   async findByGoTrueId(goTrueId: string): Promise<User | null> {
-    const rows = await db
-      .select()
-      .from(users)
-      .where(eq(users.goTrueId, goTrueId))
-      .limit(1)
-    return rows[0] ?? null
+    const gt = await goTrueAdmin.getById(goTrueId)
+    return gt ? toUser(gt) : null
   },
 
   async findByEmail(email: string): Promise<User | null> {
-    const rows = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1)
-    return rows[0] ?? null
+    const gt = await goTrueAdmin.findByEmail(email)
+    return gt ? toUser(gt) : null
   },
 
   async create(data: CreateUserDTO): Promise<User> {
-    const rows = await db
-      .insert(users)
-      .values({
-        email: data.email,
-        passwordHash: data.passwordHash,
-        fullName: data.fullName,
-        isMasterGlobal: data.isMasterGlobal ?? false,
-        avatarUrl: data.avatarUrl,
-      })
-      .returning()
-    const row = rows[0]
-    if (!row) throw new Error("Failed to create user")
-    return row
+    const gt = await goTrueAdmin.create({
+      email: data.email,
+      password: data.password,
+      fullName: data.fullName,
+      isMasterGlobal: data.isMasterGlobal,
+      avatarUrl: data.avatarUrl,
+    })
+    return toUser(gt)
   },
 
-  async updatePassword(id: string, hash: string): Promise<void> {
-    await db
-      .update(users)
-      .set({ passwordHash: hash, updatedAt: new Date() })
-      .where(eq(users.id, id))
+  // ── Senha: no-ops (o GoTrue é o validador; os fluxos já o atualizam direto) ──
+  async updatePassword(_id: string, _hash: string): Promise<void> {
+    /* no-op pós-R4c — ver reset/change/invite que chamam updateGoTruePassword */
+  },
+  async updatePasswordByGoTrueId(_goTrueId: string, _hash: string): Promise<void> {
+    /* no-op pós-R4c */
+  },
+  /** id já é o GoTrue id — bridge Neon→GoTrue não é mais necessária. */
+  async setGoTrueId(_neonId: string, _goTrueId: string): Promise<void> {
+    /* no-op pós-R4c */
+  },
+  /** O GoTrue registra last_sign_in_at na emissão do token. */
+  async updateLastLogin(_id: string): Promise<void> {
+    /* no-op pós-R4c */
   },
 
-  async setGoTrueId(neonId: string, goTrueId: string): Promise<void> {
-    await db
-      .update(users)
-      .set({ goTrueId, updatedAt: new Date() })
-      .where(eq(users.id, neonId))
-  },
-
-  async updatePasswordByGoTrueId(goTrueId: string, hash: string): Promise<void> {
-    await db
-      .update(users)
-      .set({ passwordHash: hash, updatedAt: new Date() })
-      .where(eq(users.goTrueId, goTrueId))
-  },
-
-  async updateLastLogin(id: string): Promise<void> {
-    // Aceita GoTrue UUID (gotrue_id) ou Neon UUID (id) — OR garante hit em ambos os casos
-    await db
-      .update(users)
-      .set({ lastLoginAt: new Date(), updatedAt: new Date() })
-      .where(or(eq(users.id, id), eq(users.goTrueId, id)))
-  },
-
+  // ── Memberships (Supabase user_tenants, por GoTrue id) ──────────────────────
   async linkToTenant(
     userId: string,
     tenantId: string,
     role: Role,
-    invitedBy?: string
+    invitedBy?: string,
   ): Promise<void> {
-    await db
-      .insert(userTenants)
-      .values({
-        userId,
-        tenantId,
-        role,
-        status: "pending",
-        invitedBy: invitedBy ?? null,
-      })
-      .onConflictDoNothing()
+    // onConflictDoNothing: não duplica o vínculo (UNIQUE user_id+tenant_id).
+    const existing = await supabase
+      .from<UserTenantRow>("user_tenants")
+      .select(`user_id=eq.${enc(userId)}&tenant_id=eq.${enc(tenantId)}&limit=1`)
+    if (existing[0]) return
+    await supabase.from<UserTenantRow>("user_tenants").insert({
+      user_id: userId,
+      tenant_id: tenantId,
+      role: roleToSupabase(role),
+      status: "pendente",
+      invited_by: invitedBy ?? null,
+    } as Partial<UserTenantRow>)
   },
 
   async getUserTenants(userId: string): Promise<UserTenant[]> {
-    return db
-      .select()
-      .from(userTenants)
-      .where(eq(userTenants.userId, userId))
+    const rows = await supabase
+      .from<UserTenantRow>("user_tenants")
+      .select(`select=${UT_COLS}&user_id=eq.${enc(userId)}`)
+    return rows.map(toUserTenant)
   },
 
   async getUserRoleInTenant(
     userId: string,
-    tenantId: string
+    tenantId: string,
   ): Promise<UserTenant | null> {
-    const rows = await db
-      .select()
-      .from(userTenants)
-      .where(
-        and(
-          eq(userTenants.userId, userId),
-          eq(userTenants.tenantId, tenantId)
-        )
+    const rows = await supabase
+      .from<UserTenantRow>("user_tenants")
+      .select(
+        `select=${UT_COLS}&user_id=eq.${enc(userId)}&tenant_id=eq.${enc(tenantId)}&limit=1`,
       )
-      .limit(1)
-    return rows[0] ?? null
+    return rows[0] ? toUserTenant(rows[0]) : null
   },
 
   async setUserStatusInTenant(
     userId: string,
     tenantId: string,
-    status: UserStatus
+    status: UserStatus,
   ): Promise<void> {
-    const values: Partial<typeof userTenants.$inferInsert> = { status }
-    if (status === "active") values.activatedAt = new Date()
-
-    await db
-      .update(userTenants)
-      .set(values)
-      .where(
-        and(
-          eq(userTenants.userId, userId),
-          eq(userTenants.tenantId, tenantId)
-        )
-      )
+    const patch: Partial<UserTenantRow> & { activated_at?: string } = {
+      status: statusToSupabase(status),
+    }
+    if (status === "active") patch.activated_at = new Date().toISOString()
+    await supabase
+      .from<UserTenantRow>("user_tenants")
+      .update(`user_id=eq.${enc(userId)}&tenant_id=eq.${enc(tenantId)}`, patch)
   },
 
   async updateUserPermissions(
     userId: string,
     tenantId: string,
-    permissions: UserPermissions
+    permissions: UserPermissions,
   ): Promise<void> {
-    await db
-      .update(userTenants)
-      .set({ permissions })
-      .where(
-        and(
-          eq(userTenants.userId, userId),
-          eq(userTenants.tenantId, tenantId)
-        )
-      )
+    await supabase
+      .from<UserTenantRow>("user_tenants")
+      .update(`user_id=eq.${enc(userId)}&tenant_id=eq.${enc(tenantId)}`, {
+        permissions,
+      } as Partial<UserTenantRow>)
+  },
+
+  async updateRole(userId: string, tenantId: string, role: Role): Promise<void> {
+    await supabase
+      .from<UserTenantRow>("user_tenants")
+      .update(`user_id=eq.${enc(userId)}&tenant_id=eq.${enc(tenantId)}`, {
+        role: roleToSupabase(role),
+      } as Partial<UserTenantRow>)
   },
 
   async getTenantMembers(tenantId: string): Promise<TenantMember[]> {
-    const rows = await db
-      .select({
-        userId: userTenants.userId,
-        role: userTenants.role,
-        status: userTenants.status,
-        permissions: userTenants.permissions,
-        invitedAt: userTenants.invitedAt,
-        activatedAt: userTenants.activatedAt,
-        email: users.email,
-        fullName: users.fullName,
-        avatarUrl: users.avatarUrl,
-        lastLoginAt: users.lastLoginAt,
-      })
-      .from(userTenants)
-      .innerJoin(users, eq(userTenants.userId, users.id))
-      .where(eq(userTenants.tenantId, tenantId))
-      .orderBy(userTenants.invitedAt)
-    return rows.map((r) => ({ ...r, permissions: (r.permissions ?? {}) as UserPermissions }))
+    const rows = await supabase
+      .from<UserTenantRow>("user_tenants")
+      .select(`select=${UT_COLS}&tenant_id=eq.${enc(tenantId)}&order=invited_at.asc`)
+    // Perfil (email/nome/avatar/último login) vem do GoTrue, por usuário.
+    const profiles = await Promise.all(
+      rows.map((r) => goTrueAdmin.getById(r.user_id)),
+    )
+    return rows.map((r, i) => {
+      const p = profiles[i]
+      return {
+        userId: r.user_id,
+        role: roleToLegacy(r.role),
+        status: statusToLegacy(r.status),
+        permissions: (r.permissions ?? {}) as UserPermissions,
+        invitedAt: new Date(r.invited_at),
+        activatedAt: r.activated_at ? new Date(r.activated_at) : null,
+        email: p?.email ?? "",
+        fullName: p?.fullName ?? r.nome ?? "",
+        avatarUrl: p?.avatarUrl ?? null,
+        lastLoginAt: p?.lastSignInAt ?? null,
+      }
+    })
   },
 
-  async findAllWithoutGoTrueId(): Promise<Pick<User, 'id' | 'email'>[]> {
-    return db
-      .select({ id: users.id, email: users.email })
-      .from(users)
-      .where(isNull(users.goTrueId))
+  // ── Backfill GoTrue: concluído (sem Neon, nada pendente) ────────────────────
+  async findAllWithoutGoTrueId(): Promise<Pick<User, "id" | "email">[]> {
+    return []
   },
-
   async countWithoutGoTrueId(): Promise<number> {
-    const rows = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(users)
-      .where(isNull(users.goTrueId))
-    return rows[0]?.count ?? 0
-  },
-
-  async updateRole(
-    userId: string,
-    tenantId: string,
-    role: Role
-  ): Promise<void> {
-    await db
-      .update(userTenants)
-      .set({ role })
-      .where(
-        and(
-          eq(userTenants.userId, userId),
-          eq(userTenants.tenantId, tenantId)
-        )
-      )
+    return 0
   },
 }

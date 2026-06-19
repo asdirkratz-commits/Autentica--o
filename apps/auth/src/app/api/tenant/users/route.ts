@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { UserRepo, UserAppAccessRepo, AuditRepo } from "@repo/db"
 import { err, ErrorCode, enforceSameOrigin } from "@repo/auth-shared"
 import { requireActiveTenantMember } from "@/lib/api-guard"
-import { hashPassword, validatePasswordStrength } from "@/lib/password"
-import { createGoTrueUser } from "@/lib/supabase-user-tenants"
+import { validatePasswordStrength } from "@/lib/password"
 import type { UserPermissions } from "@repo/auth-shared"
 
 // GET /api/tenant/users — listar usuários do tenant atual (admin+)
@@ -122,19 +121,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: true, data: { userId: existing.id } })
   }
 
-  // Criar novo usuário e ativar imediatamente no tenant
-  const passwordHash = await hashPassword(password)
+  // Criar novo usuário no GoTrue (identidade canônica) e ativar no tenant.
+  // UserRepo.create cria em auth.users via Admin API; newUser.id = GoTrue UUID.
   const newUser = await UserRepo.create({
     email: email.toLowerCase().trim(),
-    passwordHash,
+    password,
     fullName,
   })
-
-  // Criar em GoTrue para que o login primário (GoTrue) funcione imediatamente
-  const goTrueId = await createGoTrueUser(email.toLowerCase().trim(), password)
-  if (goTrueId) {
-    await UserRepo.setGoTrueId(newUser.id, goTrueId)
-  }
 
   await UserRepo.linkToTenant(newUser.id, tenantId, newRole, actorId)
   await UserRepo.setUserStatusInTenant(newUser.id, tenantId, "active")
