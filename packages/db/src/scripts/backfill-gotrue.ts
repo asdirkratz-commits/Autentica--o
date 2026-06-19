@@ -1,9 +1,9 @@
 /**
  * Backfill GoTrue — cria entradas no Supabase Auth para todos os usuários Neon sem gotrue_id.
  *
- * Cada usuário recebe uma senha aleatória desconhecida no GoTrue. O login continuará
- * funcionando via bcrypt Neon (fallback). Quando o usuário trocar a senha via
- * /change-password, GoTrue é sincronizado e ele passa a usar o path GoTrue.
+ * Cada usuário recebe uma senha aleatória desconhecida no GoTrue. Após o backfill,
+ * o usuário PRECISA trocar a senha via /change-password para sincronizar GoTrue
+ * com a senha real (pós-P6 não há mais fallback bcrypt).
  *
  * Pré-requisito: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY em apps/auth/.env.local
  *
@@ -117,9 +117,9 @@ async function main(): Promise<void> {
   }
 
   console.log()
-  console.log("ℹ   Senha GoTrue definida como aleatória (não conhecida pelo usuário).")
-  console.log("    Login continua via bcrypt Neon até o usuário trocar a senha.")
-  console.log("    Na próxima troca via /change-password, GoTrue é sincronizado.")
+  console.log("⚠   Senha GoTrue definida como aleatória (não conhecida pelo usuário).")
+  console.log("    O usuário deve trocar a senha via /change-password para ativar o login GoTrue.")
+  console.log("    Sem troca, o login falhará (não há fallback bcrypt desde P6).")
 }
 
 main().catch(e => { console.error(e); process.exit(1) })
