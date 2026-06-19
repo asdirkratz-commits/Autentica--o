@@ -72,9 +72,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // payload.sub é GoTrue UUID desde P3; findByGoTrueId faz o bridge para o Neon user
+  // payload.sub = GoTrue UUID (pós-P3); tokens pré-P3 (Neon UUID) já expiraram
   const user = await UserRepo.findByGoTrueId(payload.sub)
-    ?? await UserRepo.findById(payload.sub) // fallback p/ sessões pré-P3 com Neon UUID
   if (!user) {
     const response = NextResponse.json(
       err(ErrorCode.NOT_FOUND, "Usuário não encontrado", 404).error,

@@ -46,9 +46,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  // payload.sub = GoTrue UUID desde P3; lookup Neon feito uma única vez
+  // payload.sub = GoTrue UUID (pós-P3)
   const neonUser = await UserRepo.findByGoTrueId(payload.sub)
-    ?? await UserRepo.findById(payload.sub)
   if (!neonUser) {
     return NextResponse.json(
       err(ErrorCode.NOT_FOUND, "Usuário não encontrado", 404).error,

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { UserRepo, AuditRepo, TenantRepo } from "@repo/db"
 import { err, ErrorCode, enforceSameOrigin } from "@repo/auth-shared"
-import { comparePassword, hashPassword } from "@/lib/password"
+import { hashPassword } from "@/lib/password"
 import { createSession } from "@/lib/session"
 import { setAuthCookies } from "@/lib/cookies"
 import { checkRateLimit } from "@/lib/rate-limit"
@@ -63,38 +63,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  // ── Validação de senha: GoTrue primário, bcrypt Neon como fallback ───────
-  // JWT sub = GoTrue UUID (pós-P3). Neon continua como fonte de isMasterGlobal/fullName.
-  let jwtSub: string
+  // ── Validação de senha: GoTrue (único validador desde P6) ───────────────
+  // JWT sub = GoTrue UUID. Neon continua como fonte de isMasterGlobal/fullName.
   const goTrueId = await validateGoTruePassword(email.toLowerCase().trim(), password)
-  if (goTrueId) {
-    jwtSub = goTrueId
-    // Lazy backfill: popula gotrue_id para usuários migrados antes da P3
-    if (!neonUser.goTrueId) {
-      void UserRepo.setGoTrueId(neonUser.id, goTrueId).catch(() => undefined)
-    }
-  } else {
-    // Fallback: bcrypt Neon (usuários sem GoTrue entry, ou GoTrue env ausente)
-    const passwordOk = await comparePassword(password, neonUser.passwordHash)
-    if (!passwordOk) {
-      await AuditRepo.log({
-        userId: neonUser.goTrueId ?? neonUser.id,
-        action: "auth.login_failed",
-        targetType: "user",
-        targetId: neonUser.goTrueId ?? neonUser.id,
-        metadata: { reason: "wrong_password", ip },
-        ipAddress: ip,
-      })
-      return NextResponse.json(
-        err(ErrorCode.INVALID_CREDENTIALS, "Credenciais inválidas", 401).error,
-        { status: 401 }
-      )
-    }
-    jwtSub = neonUser.goTrueId ?? neonUser.id
-    if (!neonUser.goTrueId) {
-      console.warn(`[login] usuário ${email} sem gotrue_id — usando Neon UUID como sub`)
-    }
+  if (!goTrueId) {
+    await AuditRepo.log({
+      userId: neonUser.goTrueId ?? neonUser.id,
+      action: "auth.login_failed",
+      targetType: "user",
+      targetId: neonUser.goTrueId ?? neonUser.id,
+      metadata: { reason: "wrong_password", ip },
+      ipAddress: ip,
+    })
+    return NextResponse.json(
+      err(ErrorCode.INVALID_CREDENTIALS, "Credenciais inválidas", 401).error,
+      { status: 401 }
+    )
   }
+  const jwtSub = goTrueId
 
   // ── Determinar tenant + modulos ──────────────────────────────────────────
   type TenantEntry = { tenantId: string; role: string; status: string; permissions: Record<string, boolean>; modulos: string[] }

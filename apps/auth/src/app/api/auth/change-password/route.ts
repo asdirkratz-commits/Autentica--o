@@ -60,9 +60,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  // userId = GoTrue UUID desde P3; findByGoTrueId é o path principal
+  // userId = GoTrue UUID (pós-P3); header injetado pelo middleware
   const user = await UserRepo.findByGoTrueId(userId)
-    ?? await UserRepo.findById(userId) // fallback sessões pré-P3
   if (!user) {
     return NextResponse.json(
       err(ErrorCode.NOT_FOUND, "Usuário não encontrado", 404).error,
@@ -70,21 +69,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  // Valida senha atual via GoTrue (primário) ou bcrypt Neon (fallback)
-  const goTrueOk = user.email
+  // Valida senha atual via GoTrue (único validador desde P6)
+  const currentOk = user.email
     ? (await validateGoTruePassword(user.email, currentPassword)) !== null
     : false
 
-  if (!goTrueOk) {
-    // Fallback bcrypt Neon
-    const { comparePassword } = await import("@/lib/password")
-    const neonOk = await comparePassword(currentPassword, user.passwordHash)
-    if (!neonOk) {
-      return NextResponse.json(
-        err(ErrorCode.INVALID_CREDENTIALS, "Senha atual incorreta", 400).error,
-        { status: 400 }
-      )
-    }
+  if (!currentOk) {
+    return NextResponse.json(
+      err(ErrorCode.INVALID_CREDENTIALS, "Senha atual incorreta", 400).error,
+      { status: 400 }
+    )
   }
 
   const newHash = await hashPassword(newPassword)

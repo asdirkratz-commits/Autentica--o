@@ -53,11 +53,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  // resetToken.userId = GoTrue UUID (pós-P3) ou Neon UUID (tokens emitidos antes da P3)
-  // Fazer lookup para obter tanto o Neon id quanto o goTrueId corretamente
-  const tokenUserId = resetToken.userId
-  const user = await UserRepo.findByGoTrueId(tokenUserId)
-    ?? await UserRepo.findById(tokenUserId)
+  // resetToken.userId = GoTrue UUID (pós-P3); tokens pré-P3 já expiraram
+  const user = await UserRepo.findByGoTrueId(resetToken.userId)
 
   if (!user) {
     return NextResponse.json(
@@ -78,16 +75,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   await PasswordResetRepo.markUsed(resetToken.id)
 
-  // Revoga sessões — usa GoTrue UUID se disponível (Supabase refresh_tokens), else Neon
-  const revokeId = user.goTrueId ?? user.id
-  await revokeAllUserSessions(revokeId)
+  // user.goTrueId sempre presente desde P6 (todos migrados)
+  await revokeAllUserSessions(user.goTrueId ?? user.id)
 
-  const auditUserId = user.goTrueId ?? user.id
   await AuditRepo.log({
-    userId: auditUserId,
+    userId: user.goTrueId ?? user.id,
     action: "auth.password_reset_completed",
     targetType: "user",
-    targetId: auditUserId,
+    targetId: user.goTrueId ?? user.id,
     ipAddress: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
   })
 
