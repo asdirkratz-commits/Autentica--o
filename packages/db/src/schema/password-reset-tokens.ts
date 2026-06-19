@@ -5,15 +5,13 @@ import {
   timestamp,
   index,
 } from "drizzle-orm/pg-core"
-import { users } from "./users"
 
 export const passwordResetTokens = pgTable(
   "password_reset_tokens",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    // Armazena GoTrue UUID desde P3 (FK para users.id removida na migration 0009)
+    userId: uuid("user_id").notNull(),
     tokenHash: text("token_hash").notNull().unique(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     usedAt: timestamp("used_at", { withTimezone: true }),

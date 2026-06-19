@@ -5,6 +5,7 @@ import { verifyJWT } from "@/lib/jwt"
 import { getAccessTokenFromCookies, setAuthCookies } from "@/lib/cookies"
 import { createSession } from "@/lib/session"
 import { cache } from "@/lib/redis"
+import { getSupabaseUserTenantsByGoTrueId } from "@/lib/supabase-user-tenants"
 
 // POST /api/auth/select-tenant — trocar de tenant após login com múltiplos tenants
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -45,16 +46,46 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  // Verificar se usuário tem acesso ao tenant
-  const userTenant = await UserRepo.getUserRoleInTenant(payload.sub, tenantId)
-  if (!userTenant || userTenant.status !== "active") {
+  // payload.sub = GoTrue UUID desde P3; lookup Neon feito uma única vez
+  const neonUser = await UserRepo.findByGoTrueId(payload.sub)
+    ?? await UserRepo.findById(payload.sub)
+  if (!neonUser) {
     return NextResponse.json(
-      err(ErrorCode.FORBIDDEN, "Acesso negado a esta empresa", 403).error,
-      { status: 403 }
+      err(ErrorCode.NOT_FOUND, "Usuário não encontrado", 404).error,
+      { status: 404 }
     )
   }
 
-  // Verificar status do tenant
+  // Verifica acesso via Supabase user_tenants (primário) ou Neon (fallback)
+  const supabaseTenants = await getSupabaseUserTenantsByGoTrueId(payload.sub)
+  const supabaseTenant = supabaseTenants?.find(t => t.tenantId === tenantId)
+
+  let selectedRole: "admin" | "user"
+  let modulos: string[] | undefined
+
+  if (supabaseTenant) {
+    if (supabaseTenant.status !== "active") {
+      return NextResponse.json(
+        err(ErrorCode.FORBIDDEN, "Acesso negado a esta empresa", 403).error,
+        { status: 403 }
+      )
+    }
+    selectedRole = supabaseTenant.role
+    modulos = supabaseTenant.modulos
+  } else {
+    // Fallback Neon: SUPABASE indisponível ou usuário sem GoTrue entry
+    const neonTenant = await UserRepo.getUserRoleInTenant(neonUser.id, tenantId)
+    if (!neonTenant || neonTenant.status !== "active") {
+      return NextResponse.json(
+        err(ErrorCode.FORBIDDEN, "Acesso negado a esta empresa", 403).error,
+        { status: 403 }
+      )
+    }
+    selectedRole = neonTenant.role as "admin" | "user"
+    modulos = []
+  }
+
+  // Verificar status do tenant no cache
   let tenantStatus = await cache.getTenantStatus(tenantId)
   if (!tenantStatus) {
     const tenant = await TenantRepo.findById(tenantId)
@@ -75,37 +106,32 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  const user = await UserRepo.findById(payload.sub)
-  if (!user) {
-    return NextResponse.json(
-      err(ErrorCode.NOT_FOUND, "Usuário não encontrado", 404).error,
-      { status: 404 }
-    )
-  }
+  // Permissions ficam no Neon user_tenants (não estão no Supabase user_tenants)
+  const neonTenantEntry = await UserRepo.getUserRoleInTenant(neonUser.id, tenantId)
+  const permissions = (neonTenantEntry?.permissions ?? {}) as Record<string, boolean>
 
-  const permissions = (userTenant.permissions ?? {}) as Record<string, boolean>
-  const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown"
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown"
 
   const { tokens, refreshExpiresAt } = await createSession(
-    user.id,
+    payload.sub, // GoTrue UUID
     tenantId,
-    userTenant.role as "admin" | "user",
-    user.isMasterGlobal,
+    selectedRole,
+    neonUser.isMasterGlobal,
     permissions,
     {
       userAgent: request.headers.get("user-agent") ?? undefined,
       ipAddress: ip,
     },
-    user.fullName
+    neonUser.fullName,
+    modulos,
   )
 
   await AuditRepo.log({
     tenantId,
-    userId: user.id,
+    userId: payload.sub,
     action: "auth.login",
     targetType: "session",
-    targetId: user.id,
+    targetId: payload.sub,
     metadata: { via: "tenant_switch", ip },
     ipAddress: ip,
   })

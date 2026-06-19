@@ -64,6 +64,13 @@
       "when": 1781016148963,
       "tag": "0008_refresh_tokens_nullable_tenant",
       "breakpoints": false
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1750291200000,
+      "tag": "0009_p3_gotrue_id",
+      "breakpoints": false
     }
   ]
 }

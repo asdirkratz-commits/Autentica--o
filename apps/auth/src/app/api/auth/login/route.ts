@@ -6,7 +6,10 @@ import { createSession } from "@/lib/session"
 import { setAuthCookies } from "@/lib/cookies"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { cache } from "@/lib/redis"
-import { getSupabaseUserTenants } from "@/lib/supabase-user-tenants"
+import {
+  validateGoTruePassword,
+  getSupabaseUserTenantsByGoTrueId,
+} from "@/lib/supabase-user-tenants"
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const csrf = enforceSameOrigin(request)
@@ -17,7 +20,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     request.headers.get("x-real-ip") ??
     "unknown"
 
-  // Rate limiting: 5 tentativas por IP por minuto
   const { allowed } = await checkRateLimit(ip)
   if (!allowed) {
     return NextResponse.json(
@@ -37,7 +39,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const { email, password, tenantId } = body
-
   if (!email || !password) {
     return NextResponse.json(
       err(ErrorCode.VALIDATION_ERROR, "email e password são obrigatórios", 400).error,
@@ -45,12 +46,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  const user = await UserRepo.findByEmail(email.toLowerCase().trim())
-
-  if (!user) {
-    // Equaliza o tempo de resposta com o ramo de senha incorreta (que roda bcrypt),
-    // evitando enumeração de e-mails por timing. Resultado descartado.
-    await hashPassword(password)
+  // ── Localizar usuário no Neon (identity source) ──────────────────────────
+  const neonUser = await UserRepo.findByEmail(email.toLowerCase().trim())
+  if (!neonUser) {
+    await hashPassword(password) // equaliza tempo, evita enumeração
     await AuditRepo.log({
       action: "auth.login_failed",
       targetType: "user",
@@ -64,34 +63,42 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  const passwordOk = await comparePassword(password, user.passwordHash)
-  if (!passwordOk) {
-    await AuditRepo.log({
-      userId: user.id,
-      action: "auth.login_failed",
-      targetType: "user",
-      targetId: user.id,
-      metadata: { reason: "wrong_password", ip },
-      ipAddress: ip,
-    })
-    return NextResponse.json(
-      err(ErrorCode.INVALID_CREDENTIALS, "Credenciais inválidas", 401).error,
-      { status: 401 }
-    )
+  // ── Validação de senha: GoTrue primário, bcrypt Neon como fallback ───────
+  // JWT sub = GoTrue UUID (pós-P3). Neon continua como fonte de isMasterGlobal/fullName.
+  let jwtSub: string
+  const goTrueId = await validateGoTruePassword(email.toLowerCase().trim(), password)
+  if (goTrueId) {
+    jwtSub = goTrueId
+  } else {
+    // Fallback: bcrypt Neon (usuários sem GoTrue entry, ou GoTrue env ausente)
+    const passwordOk = await comparePassword(password, neonUser.passwordHash)
+    if (!passwordOk) {
+      await AuditRepo.log({
+        userId: neonUser.goTrueId ?? neonUser.id,
+        action: "auth.login_failed",
+        targetType: "user",
+        targetId: neonUser.goTrueId ?? neonUser.id,
+        metadata: { reason: "wrong_password", ip },
+        ipAddress: ip,
+      })
+      return NextResponse.json(
+        err(ErrorCode.INVALID_CREDENTIALS, "Credenciais inválidas", 401).error,
+        { status: 401 }
+      )
+    }
+    jwtSub = neonUser.goTrueId ?? neonUser.id
+    if (!neonUser.goTrueId) {
+      console.warn(`[login] usuário ${email} sem gotrue_id — usando Neon UUID como sub`)
+    }
   }
 
   // ── Determinar tenant + modulos ──────────────────────────────────────────
-  // Tenta buscar tenants do Supabase user_tenants (fonte canônica pós-P1).
-  // Se não disponível (env vars ausentes ou usuário sem GoTrue entry), usa Neon userTenants.
-  const supabaseTenants = await getSupabaseUserTenants(user.email)
-  const tenantSource = supabaseTenants?.tenants ?? null
-
-  // Normaliza para o formato do Neon getUserTenants (status: "active"/"inactive")
   type TenantEntry = { tenantId: string; role: string; status: string; permissions: Record<string, boolean>; modulos: string[] }
 
   let allTenants: TenantEntry[]
-  if (tenantSource) {
-    allTenants = tenantSource.map(t => ({
+  const supabaseTenants = await getSupabaseUserTenantsByGoTrueId(jwtSub)
+  if (supabaseTenants) {
+    allTenants = supabaseTenants.map(t => ({
       tenantId: t.tenantId,
       role: t.role,
       status: t.status,
@@ -99,7 +106,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       modulos: t.modulos,
     }))
   } else {
-    const neonTenants = await UserRepo.getUserTenants(user.id)
+    // Fallback Neon user_tenants (sem modulos)
+    const neonTenants = await UserRepo.getUserTenants(neonUser.id)
     allTenants = neonTenants.map(t => ({
       tenantId: t.tenantId,
       role: t.role,
@@ -107,12 +115,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       permissions: (t.permissions ?? {}) as Record<string, boolean>,
       modulos: [],
     }))
-    if (!user.isMasterGlobal && neonTenants.length > 0) {
-      console.warn('[login] modulos=[]: usando fallback Neon — SUPABASE_URL ausente ou usuário sem GoTrue entry. Usuário não-Master pode perder acesso a módulos.')
+    if (!neonUser.isMasterGlobal && neonTenants.length > 0) {
+      console.warn('[login] modulos=[]: fallback Neon — SUPABASE env ausente ou usuário sem GoTrue entry')
     }
   }
 
-  const activeTenants = allTenants.filter((ut) => ut.status === "active")
+  const activeTenants = allTenants.filter(ut => ut.status === "active")
 
   let selectedTenantId = tenantId
   let selectedRole: "admin" | "user" = "user"
@@ -122,7 +130,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       selectedTenantId = activeTenants[0].tenantId
       selectedRole = activeTenants[0].role as typeof selectedRole
     } else if (activeTenants.length > 1) {
-      // Múltiplos tenants — buscar nomes e retornar lista para seleção
       const tenantDetails = await Promise.all(
         activeTenants.map(async (ut) => {
           const tenant = await TenantRepo.findById(ut.tenantId)
@@ -138,8 +145,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         requiresTenantSelection: true,
         tenants: tenantDetails,
       })
-    } else if (user.isMasterGlobal) {
-      // master_global sem tenant — selectedTenantId fica undefined (sem FK no banco)
+    } else if (neonUser.isMasterGlobal) {
       selectedTenantId = undefined
     } else {
       return NextResponse.json(
@@ -148,7 +154,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       )
     }
   } else {
-    const ut = allTenants.find((t) => t.tenantId === selectedTenantId)
+    const ut = allTenants.find(t => t.tenantId === selectedTenantId)
     if (!ut || ut.status !== "active") {
       return NextResponse.json(
         err(ErrorCode.FORBIDDEN, "Acesso negado a esta empresa", 403).error,
@@ -158,7 +164,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     selectedRole = ut.role as typeof selectedRole
   }
 
-  // Verificar status do tenant no cache (apenas se tem tenant)
   if (selectedTenantId) {
     const tenantStatus = await cache.getTenantStatus(selectedTenantId)
     if (tenantStatus === "bloqueado" || tenantStatus === "inativo") {
@@ -169,30 +174,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const selectedTenantEntry = allTenants.find((ut) => ut.tenantId === selectedTenantId)
+  const selectedTenantEntry = allTenants.find(ut => ut.tenantId === selectedTenantId)
   const permissions = selectedTenantEntry?.permissions ?? {}
   const modulos = selectedTenantEntry?.modulos
 
   const { tokens, refreshExpiresAt } = await createSession(
-    user.id,
+    jwtSub,
     selectedTenantId,
     selectedRole,
-    user.isMasterGlobal,
+    neonUser.isMasterGlobal,
     permissions,
     {
       userAgent: request.headers.get("user-agent") ?? undefined,
       ipAddress: ip,
     },
-    user.fullName,
+    neonUser.fullName,
     modulos,
   )
 
   await AuditRepo.log({
     tenantId: !selectedTenantId || selectedTenantId === "master" ? undefined : selectedTenantId,
-    userId: user.id,
+    userId: jwtSub,
     action: "auth.login",
     targetType: "session",
-    targetId: user.id,
+    targetId: jwtSub,
     metadata: { ip },
     ipAddress: ip,
   })

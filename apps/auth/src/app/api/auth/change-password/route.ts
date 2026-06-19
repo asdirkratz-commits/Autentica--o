@@ -2,20 +2,19 @@ import { NextRequest, NextResponse } from "next/server"
 import { headers } from "next/headers"
 import { UserRepo, AuditRepo } from "@repo/db"
 import { err, ErrorCode, enforceSameOrigin } from "@repo/auth-shared"
-import { hashPassword, comparePassword, validatePasswordStrength } from "@/lib/password"
+import { hashPassword, validatePasswordStrength } from "@/lib/password"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { revokeOtherUserSessions } from "@/lib/session"
 import { getRefreshTokenFromCookies } from "@/lib/cookies"
+import { validateGoTruePassword } from "@/lib/supabase-user-tenants"
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const csrf = enforceSameOrigin(request)
   if (csrf) return csrf
 
-  // Esta rota NÃO é pública (removida de PUBLIC_PREFIXES em SEC-03): o middleware
-  // verifica o JWT e injeta x-user-id confiável. A identidade vem daí, não do client.
+  // userId vem do header injetado pelo middleware (JWT sub = GoTrue UUID desde P3)
   const hdrs = await headers()
   const userId = hdrs.get("x-user-id")
-
   if (!userId) {
     return NextResponse.json(
       err(ErrorCode.UNAUTHORIZED, "Não autenticado", 401).error,
@@ -23,8 +22,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  // Rate limit: 5 tentativas por IP por minuto (bucket próprio, separado do login).
-  // Impede usar a verificação de senha atual como oráculo de força-bruta.
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     request.headers.get("x-real-ip") ??
@@ -48,7 +45,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const { currentPassword, newPassword } = body
-
   if (!currentPassword || !newPassword) {
     return NextResponse.json(
       err(ErrorCode.VALIDATION_ERROR, "currentPassword e newPassword são obrigatórios", 400).error,
@@ -64,7 +60,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  const user = await UserRepo.findById(userId)
+  // userId = GoTrue UUID desde P3; findByGoTrueId é o path principal
+  const user = await UserRepo.findByGoTrueId(userId)
+    ?? await UserRepo.findById(userId) // fallback sessões pré-P3
   if (!user) {
     return NextResponse.json(
       err(ErrorCode.NOT_FOUND, "Usuário não encontrado", 404).error,
@@ -72,19 +70,47 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  const valid = await comparePassword(currentPassword, user.passwordHash)
-  if (!valid) {
-    return NextResponse.json(
-      err(ErrorCode.INVALID_CREDENTIALS, "Senha atual incorreta", 400).error,
-      { status: 400 }
-    )
+  // Valida senha atual via GoTrue (primário) ou bcrypt Neon (fallback)
+  const goTrueOk = user.email
+    ? (await validateGoTruePassword(user.email, currentPassword)) !== null
+    : false
+
+  if (!goTrueOk) {
+    // Fallback bcrypt Neon
+    const { comparePassword } = await import("@/lib/password")
+    const neonOk = await comparePassword(currentPassword, user.passwordHash)
+    if (!neonOk) {
+      return NextResponse.json(
+        err(ErrorCode.INVALID_CREDENTIALS, "Senha atual incorreta", 400).error,
+        { status: 400 }
+      )
+    }
   }
 
   const newHash = await hashPassword(newPassword)
-  await UserRepo.updatePassword(userId, newHash)
 
-  // Derruba as DEMAIS sessões do usuário (mantém a atual) — uma senha trocada deve
-  // invalidar sessões em outros dispositivos / de eventual atacante.
+  // Atualiza GoTrue (primário) via Admin API
+  const supabaseUrl = process.env.SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (supabaseUrl && supabaseKey && user.goTrueId) {
+    const res = await fetch(`${supabaseUrl}/auth/v1/admin/users/${user.goTrueId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${supabaseKey}`,
+        apikey: supabaseKey,
+      },
+      body: JSON.stringify({ password: newPassword }),
+    })
+    if (!res.ok) {
+      console.error("[change-password] GoTrue update falhou — status:", res.status)
+    }
+  }
+
+  // Atualiza bcrypt Neon usando Neon user.id (não userId que pode ser GoTrue UUID)
+  await UserRepo.updatePassword(user.id, newHash)
+
+  // Derruba as outras sessões (userId = sub do JWT, pode ser GoTrue UUID)
   await revokeOtherUserSessions(userId, getRefreshTokenFromCookies(request))
 
   await AuditRepo.log({

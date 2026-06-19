@@ -21,7 +21,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const { token, password } = body
-
   if (!token || !password) {
     return NextResponse.json(
       err(ErrorCode.VALIDATION_ERROR, "token e password são obrigatórios", 400).error,
@@ -39,7 +38,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const tokenHash = hashToken(token)
   const resetToken = await PasswordResetRepo.findByHash(tokenHash)
-
   if (!resetToken) {
     return NextResponse.json(
       err(ErrorCode.NOT_FOUND, "Token inválido ou já utilizado", 404).error,
@@ -54,22 +52,55 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  const passwordHash = await hashPassword(password)
-  await UserRepo.updatePassword(resetToken.userId, passwordHash)
+  // resetToken.userId = GoTrue UUID (pós-P3) ou Neon UUID (tokens emitidos antes da P3)
+  // Fazer lookup para obter tanto o Neon id quanto o goTrueId corretamente
+  const tokenUserId = resetToken.userId
+  const user = await UserRepo.findByGoTrueId(tokenUserId)
+    ?? await UserRepo.findById(tokenUserId)
+
+  if (!user) {
+    return NextResponse.json(
+      err(ErrorCode.NOT_FOUND, "Usuário não encontrado", 404).error,
+      { status: 404 }
+    )
+  }
+
+  const newHash = await hashPassword(password)
+
+  // Atualiza GoTrue via Admin API (usa goTrueId real do user, não tokenUserId)
+  const supabaseUrl = process.env.SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (supabaseUrl && supabaseKey && user.goTrueId) {
+    const res = await fetch(`${supabaseUrl}/auth/v1/admin/users/${user.goTrueId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${supabaseKey}`,
+        apikey: supabaseKey,
+      },
+      body: JSON.stringify({ password }),
+    })
+    if (!res.ok) {
+      console.error("[reset-password] GoTrue update falhou — status:", res.status)
+    }
+  }
+
+  // Atualiza bcrypt Neon (usa Neon user.id)
+  await UserRepo.updatePassword(user.id, newHash)
+
   await PasswordResetRepo.markUsed(resetToken.id)
 
-  // Reset via "esqueci a senha": revoga TODAS as sessões (derruba sessão de eventual
-  // atacante). O usuário não está logado neste fluxo, então não há sessão a preservar.
-  await revokeAllUserSessions(resetToken.userId)
+  // Revoga sessões — usa GoTrue UUID se disponível (Supabase refresh_tokens), else Neon
+  const revokeId = user.goTrueId ?? user.id
+  await revokeAllUserSessions(revokeId)
 
+  const auditUserId = user.goTrueId ?? user.id
   await AuditRepo.log({
-    userId: resetToken.userId,
+    userId: auditUserId,
     action: "auth.password_reset_completed",
     targetType: "user",
-    targetId: resetToken.userId,
-    ipAddress:
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-      undefined,
+    targetId: auditUserId,
+    ipAddress: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
   })
 
   return NextResponse.json({ ok: true })

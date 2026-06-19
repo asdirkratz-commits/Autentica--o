@@ -1,6 +1,8 @@
-import { eq, and, desc, gte, lte } from "drizzle-orm"
-import { db } from "../client"
-import { auditLogs, type AuditLog } from "../schema/index"
+/**
+ * AuditRepo — Supabase (public.audit_logs)
+ * Migrado do Neon na P3. user_id agora é GoTrue UUID (nullable).
+ */
+import { supabase } from "../supabase-client"
 
 export type AuditAction =
   | "tenant.created"
@@ -51,34 +53,68 @@ export type AuditFilters = {
   offset?: number
 }
 
+type AuditLogRow = {
+  id: number
+  tenant_id: string | null
+  user_id: string | null
+  action: string
+  target_type: string
+  target_id: string
+  metadata: Record<string, unknown>
+  ip_address: string | null
+  created_at: string
+}
+
+export type AuditLog = {
+  id: number
+  tenantId: string | null
+  userId: string | null
+  action: string
+  targetType: string
+  targetId: string
+  metadata: Record<string, unknown>
+  ipAddress: string | null
+  createdAt: Date
+}
+
+function fromRow(r: AuditLogRow): AuditLog {
+  return {
+    id: r.id,
+    tenantId: r.tenant_id,
+    userId: r.user_id,
+    action: r.action,
+    targetType: r.target_type,
+    targetId: r.target_id,
+    metadata: r.metadata,
+    ipAddress: r.ip_address,
+    createdAt: new Date(r.created_at),
+  }
+}
+
 export const AuditRepo = {
   async log(entry: AuditEntry): Promise<void> {
-    await db.insert(auditLogs).values({
-      tenantId: entry.tenantId,
-      userId: entry.userId,
+    await supabase.from<AuditLogRow>("audit_logs").insert({
+      tenant_id: entry.tenantId ?? null,
+      user_id: entry.userId ?? null,
       action: entry.action,
-      targetType: entry.targetType,
-      targetId: entry.targetId,
+      target_type: entry.targetType,
+      target_id: entry.targetId,
       metadata: entry.metadata ?? {},
-      ipAddress: entry.ipAddress,
+      ip_address: entry.ipAddress ?? null,
     })
   },
 
   async list(filters: AuditFilters = {}): Promise<AuditLog[]> {
-    const conditions = []
-
-    if (filters.tenantId) conditions.push(eq(auditLogs.tenantId, filters.tenantId))
-    if (filters.userId) conditions.push(eq(auditLogs.userId, filters.userId))
-    if (filters.action) conditions.push(eq(auditLogs.action, filters.action))
-    if (filters.from) conditions.push(gte(auditLogs.createdAt, filters.from))
-    if (filters.to) conditions.push(lte(auditLogs.createdAt, filters.to))
-
-    return db
-      .select()
-      .from(auditLogs)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(auditLogs.createdAt))
-      .limit(filters.limit ?? 100)
-      .offset(filters.offset ?? 0)
+    const parts: string[] = []
+    if (filters.tenantId) parts.push(`tenant_id=eq.${filters.tenantId}`)
+    if (filters.userId)   parts.push(`user_id=eq.${filters.userId}`)
+    if (filters.action)   parts.push(`action=eq.${encodeURIComponent(filters.action)}`)
+    if (filters.from)     parts.push(`created_at=gte.${filters.from.toISOString()}`)
+    if (filters.to)       parts.push(`created_at=lte.${filters.to.toISOString()}`)
+    parts.push(`order=created_at.desc`)
+    parts.push(`limit=${filters.limit ?? 100}`)
+    if (filters.offset) parts.push(`offset=${filters.offset}`)
+    const rows = await supabase.from<AuditLogRow>("audit_logs").select(parts.join("&"))
+    return rows.map(fromRow)
   },
 }

@@ -42,17 +42,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const tokenHash = hashToken(rawToken)
   const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000) // 2 horas
 
+  // Desde P3: userId = GoTrue UUID (fallback Neon id se não tiver gotrue_id)
   await PasswordResetRepo.create({
-    userId: user.id,
+    userId: user.goTrueId ?? user.id,
     tokenHash,
     expiresAt,
   })
 
+  const auditUserId = user.goTrueId ?? user.id
   await AuditRepo.log({
-    userId: user.id,
+    userId: auditUserId,
     action: "auth.password_reset_requested",
     targetType: "user",
-    targetId: user.id,
+    targetId: auditUserId,
     ipAddress:
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
       undefined,

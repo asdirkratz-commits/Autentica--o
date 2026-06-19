@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm"
+import { eq, and, or } from "drizzle-orm"
 import { db } from "../client"
 import {
   users,
@@ -42,6 +42,15 @@ export const UserRepo = {
     return rows[0] ?? null
   },
 
+  async findByGoTrueId(goTrueId: string): Promise<User | null> {
+    const rows = await db
+      .select()
+      .from(users)
+      .where(eq(users.goTrueId, goTrueId))
+      .limit(1)
+    return rows[0] ?? null
+  },
+
   async findByEmail(email: string): Promise<User | null> {
     const rows = await db
       .select()
@@ -74,11 +83,19 @@ export const UserRepo = {
       .where(eq(users.id, id))
   },
 
+  async updatePasswordByGoTrueId(goTrueId: string, hash: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ passwordHash: hash, updatedAt: new Date() })
+      .where(eq(users.goTrueId, goTrueId))
+  },
+
   async updateLastLogin(id: string): Promise<void> {
+    // Aceita GoTrue UUID (gotrue_id) ou Neon UUID (id) — OR garante hit em ambos os casos
     await db
       .update(users)
       .set({ lastLoginAt: new Date(), updatedAt: new Date() })
-      .where(eq(users.id, id))
+      .where(or(eq(users.id, id), eq(users.goTrueId, id)))
   },
 
   async linkToTenant(

@@ -5,7 +5,7 @@ import { verifyJWT, hashToken } from "@/lib/jwt"
 import { createSession, revokeSession, revokeAllUserSessions } from "@/lib/session"
 import { setAuthCookies, clearAuthCookies, getRefreshTokenFromCookies } from "@/lib/cookies"
 import { cache } from "@/lib/redis"
-import { getSupabaseUserTenants } from "@/lib/supabase-user-tenants"
+import { getSupabaseUserTenantsByGoTrueId } from "@/lib/supabase-user-tenants"
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const csrf = enforceSameOrigin(request)
@@ -72,7 +72,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const user = await UserRepo.findById(payload.sub)
+  // payload.sub é GoTrue UUID desde P3; findByGoTrueId faz o bridge para o Neon user
+  const user = await UserRepo.findByGoTrueId(payload.sub)
+    ?? await UserRepo.findById(payload.sub) // fallback p/ sessões pré-P3 com Neon UUID
   if (!user) {
     const response = NextResponse.json(
       err(ErrorCode.NOT_FOUND, "Usuário não encontrado", 404).error,
@@ -97,11 +99,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const permissions = (userTenant?.permissions ?? {}) as Record<string, boolean>
 
   // Re-buscar modulos do Supabase user_tenants para manter claim atualizado na rotação
-  const supabaseTenants = await getSupabaseUserTenants(user.email)
-  const modulos = supabaseTenants?.tenants.find(t => t.tenantId === sessionTenantId)?.modulos
+  const supabaseTenants = user.goTrueId
+    ? await getSupabaseUserTenantsByGoTrueId(user.goTrueId)
+    : null
+  const modulos = supabaseTenants?.find(t => t.tenantId === sessionTenantId)?.modulos
 
+  // sub = payload.sub (GoTrue UUID) — não usar user.id (Neon UUID) aqui
   const { tokens, refreshExpiresAt } = await createSession(
-    user.id,
+    payload.sub,
     sessionTenantId,
     payload.role,
     user.isMasterGlobal,

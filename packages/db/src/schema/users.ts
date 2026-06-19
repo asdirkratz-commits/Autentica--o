@@ -10,6 +10,8 @@ export const users = pgTable(
     isMasterGlobal: boolean("is_master_global").notNull().default(false),
     avatarUrl: text("avatar_url"),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+    // GoTrue UUID (auth.users.id) — bridge entre Neon identity e Supabase auth
+    goTrueId: uuid("gotrue_id").unique(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -19,6 +21,7 @@ export const users = pgTable(
   },
   (t) => ({
     emailIdx: index("idx_users_email").on(t.email),
+    goTrueIdx: index("idx_users_gotrue_id").on(t.goTrueId),
   })
 )
 
