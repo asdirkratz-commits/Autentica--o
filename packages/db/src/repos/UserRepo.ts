@@ -252,6 +252,14 @@ export const UserRepo = {
     })
   },
 
+  /** Lista todos os usuários da plataforma (Master Global) — via GoTrue Admin. */
+  async listAllUsers(): Promise<User[]> {
+    const gts = await goTrueAdmin.listAll()
+    return gts
+      .map(toUser)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+  },
+
   // ── Backfill GoTrue: concluído (sem Neon, nada pendente) ────────────────────
   async findAllWithoutGoTrueId(): Promise<Pick<User, "id" | "email">[]> {
     return []

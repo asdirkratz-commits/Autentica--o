@@ -1,20 +1,11 @@
-import { db, users } from "@repo/db"
+import { UserRepo } from "@repo/db"
 import { requireMasterGlobal } from "@/lib/admin-guard"
 
 export default async function UsersPage() {
   await requireMasterGlobal()
 
-  const allUsers = await db
-    .select({
-      id: users.id,
-      email: users.email,
-      fullName: users.fullName,
-      isMasterGlobal: users.isMasterGlobal,
-      lastLoginAt: users.lastLoginAt,
-      createdAt: users.createdAt,
-    })
-    .from(users)
-    .orderBy(users.createdAt)
+  // Lista da plataforma via GoTrue (auth.users) — identidade canônica pós-R4c.
+  const allUsers = await UserRepo.listAllUsers()
 
   return (
     <div>

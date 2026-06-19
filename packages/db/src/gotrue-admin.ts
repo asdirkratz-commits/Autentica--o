@@ -128,6 +128,21 @@ export const goTrueAdmin = {
     throw new Error(`GoTrue create falhou (status ${r.status})`)
   },
 
+  async listAll(): Promise<GoTrueUser[]> {
+    const all: GoTrueUser[] = []
+    // Pagina a Admin API (per_page padrão = 50; pedimos 200). Cap defensivo em 50 páginas.
+    for (let page = 1; page <= 50; page++) {
+      const r = await call<{ users?: GoTrueUserRaw[] }>(
+        "GET",
+        `admin/users?page=${page}&per_page=200`,
+      )
+      if (!r.ok || !r.data?.users || r.data.users.length === 0) break
+      all.push(...r.data.users.map(normalize))
+      if (r.data.users.length < 200) break
+    }
+    return all
+  },
+
   async update(
     id: string,
     patch: {
