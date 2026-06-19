@@ -165,37 +165,3 @@ export async function updateGoTruePassword(goTrueId: string, password: string): 
   }
 }
 
-/**
- * Busca memberships de tenant pelo email do usuário (via listUsers GoTrue).
- * Mantido para backward compat; prefer getSupabaseUserTenantsByGoTrueId quando
- * o GoTrue UUID já estiver disponível.
- */
-export async function getSupabaseUserTenants(email: string): Promise<{
-  goTrueUserId: string
-  tenants: SupabaseTenantEntry[]
-} | null> {
-  const env = getEnv()
-  if (!env) return null
-
-  try {
-    const listRes = await fetch(
-      `${env.url}/auth/v1/admin/users?per_page=1000`,
-      { headers: headers(env.key) },
-    )
-    if (!listRes.ok) return null
-
-    const listData = (await listRes.json()) as { users?: { id: string; email?: string }[] }
-    const goTrueUser = listData.users?.find(
-      u => u.email?.toLowerCase() === email.toLowerCase(),
-    )
-    if (!goTrueUser) return null
-
-    const tenants = await getSupabaseUserTenantsByGoTrueId(goTrueUser.id)
-    if (!tenants) return null
-
-    return { goTrueUserId: goTrueUser.id, tenants }
-  } catch (err) {
-    console.error('[supabase-user-tenants] Erro ao buscar tenants:', err)
-    return null
-  }
-}
