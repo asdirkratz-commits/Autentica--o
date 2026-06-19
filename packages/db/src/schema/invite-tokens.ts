@@ -8,7 +8,6 @@ import {
   index,
 } from "drizzle-orm/pg-core"
 import { userRoleEnum } from "./enums"
-import { users } from "./users"
 import { tenants } from "./tenants"
 
 export const inviteTokens = pgTable(
@@ -21,9 +20,8 @@ export const inviteTokens = pgTable(
       .references(() => tenants.id, { onDelete: "cascade" }),
     role: userRoleEnum("role").notNull(),
     permissions: jsonb("permissions").notNull().default({}),
-    invitedBy: uuid("invited_by")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    // invited_by armazena GoTrue UUID (= JWT sub desde P3) — FK para users.id removida na 0010
+    invitedBy: uuid("invited_by").notNull(),
     tokenHash: text("token_hash").notNull().unique(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     usedAt: timestamp("used_at", { withTimezone: true }),

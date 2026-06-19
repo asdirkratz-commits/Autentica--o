@@ -3,6 +3,7 @@ import { UserRepo, UserAppAccessRepo, AuditRepo } from "@repo/db"
 import { err, ErrorCode, enforceSameOrigin } from "@repo/auth-shared"
 import { requireActiveTenantMember } from "@/lib/api-guard"
 import { hashPassword, validatePasswordStrength } from "@/lib/password"
+import { createGoTrueUser } from "@/lib/supabase-user-tenants"
 import type { UserPermissions } from "@repo/auth-shared"
 
 // GET /api/tenant/users — listar usuários do tenant atual (admin+)
@@ -128,6 +129,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     passwordHash,
     fullName,
   })
+
+  // Criar em GoTrue para que o login primário (GoTrue) funcione imediatamente
+  const goTrueId = await createGoTrueUser(email.toLowerCase().trim(), password)
+  if (goTrueId) {
+    await UserRepo.setGoTrueId(newUser.id, goTrueId)
+  }
 
   await UserRepo.linkToTenant(newUser.id, tenantId, newRole, actorId)
   await UserRepo.setUserStatusInTenant(newUser.id, tenantId, "active")

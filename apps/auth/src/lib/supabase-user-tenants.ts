@@ -106,6 +106,66 @@ export async function getSupabaseUserTenantsByGoTrueId(goTrueId: string): Promis
 }
 
 /**
+ * Cria usuário no GoTrue via Admin API. Retorna o GoTrue UUID ou null se falhar.
+ * Se o usuário já existir (422), tenta recuperar o UUID pelo email.
+ * Soft-fail: nunca lança — GoTrue indisponível não deve bloquear o fluxo principal.
+ */
+export async function createGoTrueUser(email: string, password: string): Promise<string | null> {
+  const env = getEnv()
+  if (!env) return null
+
+  try {
+    const res = await fetch(`${env.url}/auth/v1/admin/users`, {
+      method: 'POST',
+      headers: headers(env.key),
+      body: JSON.stringify({ email, password, email_confirm: true }),
+    })
+
+    if (res.ok) {
+      const data = (await res.json()) as { id?: string }
+      return data.id ?? null
+    }
+
+    // 422 = "User already registered" — recupera UUID existente por email
+    if (res.status === 422) {
+      const listRes = await fetch(
+        `${env.url}/auth/v1/admin/users?email=${encodeURIComponent(email)}`,
+        { headers: { Authorization: `Bearer ${env.key}`, apikey: env.key } },
+      )
+      if (!listRes.ok) return null
+      const data = (await listRes.json()) as { users?: Array<{ id: string; email?: string }> }
+      return data.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())?.id ?? null
+    }
+
+    console.error('[createGoTrueUser] falhou — status:', res.status)
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Atualiza senha de um usuário no GoTrue via Admin API.
+ * Soft-fail: retorna false se falhar sem lançar.
+ */
+export async function updateGoTruePassword(goTrueId: string, password: string): Promise<boolean> {
+  const env = getEnv()
+  if (!env) return false
+
+  try {
+    const res = await fetch(`${env.url}/auth/v1/admin/users/${goTrueId}`, {
+      method: 'PUT',
+      headers: headers(env.key),
+      body: JSON.stringify({ password }),
+    })
+    if (!res.ok) console.error('[updateGoTruePassword] falhou — status:', res.status)
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+/**
  * Busca memberships de tenant pelo email do usuário (via listUsers GoTrue).
  * Mantido para backward compat; prefer getSupabaseUserTenantsByGoTrueId quando
  * o GoTrue UUID já estiver disponível.

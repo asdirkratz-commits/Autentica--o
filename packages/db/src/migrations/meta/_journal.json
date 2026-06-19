@@ -71,6 +71,13 @@
       "when": 1750291200000,
       "tag": "0009_p3_gotrue_id",
       "breakpoints": false
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1750377600000,
+      "tag": "0010_p4_drop_invite_fk",
+      "breakpoints": false
     }
   ]
 }

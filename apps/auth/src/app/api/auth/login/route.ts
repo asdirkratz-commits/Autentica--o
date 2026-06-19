@@ -69,6 +69,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const goTrueId = await validateGoTruePassword(email.toLowerCase().trim(), password)
   if (goTrueId) {
     jwtSub = goTrueId
+    // Lazy backfill: popula gotrue_id para usuários migrados antes da P3
+    if (!neonUser.goTrueId) {
+      void UserRepo.setGoTrueId(neonUser.id, goTrueId).catch(() => undefined)
+    }
   } else {
     // Fallback: bcrypt Neon (usuários sem GoTrue entry, ou GoTrue env ausente)
     const passwordOk = await comparePassword(password, neonUser.passwordHash)

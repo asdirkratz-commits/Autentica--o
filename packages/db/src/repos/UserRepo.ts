@@ -83,6 +83,13 @@ export const UserRepo = {
       .where(eq(users.id, id))
   },
 
+  async setGoTrueId(neonId: string, goTrueId: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ goTrueId, updatedAt: new Date() })
+      .where(eq(users.id, neonId))
+  },
+
   async updatePasswordByGoTrueId(goTrueId: string, hash: string): Promise<void> {
     await db
       .update(users)

@@ -84,9 +84,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return response
   }
 
-  // Revogar token atual e emitir novo par (rotation)
-  await revokeSession(refreshToken)
-
   // "master" é sentinela do JWT (master_global sem tenant). Normaliza para
   // undefined ANTES de qualquer consulta por tenant — passar "master" a uma
   // coluna uuid quebra (invalid input syntax for type uuid). Também é o valor
@@ -96,6 +93,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const userTenant = sessionTenantId
     ? await UserRepo.getUserRoleInTenant(user.id, sessionTenantId)
     : null
+
+  // A8: verificar ANTES de revogar — se rejeitar, o cliente mantém o token atual
+  if (userTenant && userTenant.status !== "active") {
+    const response = NextResponse.json(
+      err(ErrorCode.FORBIDDEN, "Acesso negado a esta empresa", 403).error,
+      { status: 403 }
+    )
+    clearAuthCookies(response)
+    return response
+  }
+
+  // Revogar token atual e emitir novo par (rotation)
+  await revokeSession(refreshToken)
+
   const permissions = (userTenant?.permissions ?? {}) as Record<string, boolean>
 
   // Re-buscar modulos do Supabase user_tenants para manter claim atualizado na rotação
