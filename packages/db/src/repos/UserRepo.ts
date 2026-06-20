@@ -27,6 +27,7 @@ export type TenantMember = {
   fullName: string
   avatarUrl: string | null
   lastLoginAt: Date | null
+  modulos: string[]
 }
 
 type Role = "admin" | "user"
@@ -248,8 +249,25 @@ export const UserRepo = {
         fullName: p?.fullName ?? r.nome ?? "",
         avatarUrl: p?.avatarUrl ?? null,
         lastLoginAt: p?.lastSignInAt ?? null,
+        modulos: r.modulos ?? [],
       }
     })
+  },
+
+  /**
+   * Atualiza os módulos liberados de um usuário num tenant (user_tenants.modulos).
+   * É o que o KontoHub lê no login → claim `modulos` do JWT → gating de módulos.
+   */
+  async updateUserModulos(
+    userId: string,
+    tenantId: string,
+    modulos: string[],
+  ): Promise<void> {
+    await supabase
+      .from<UserTenantRow>("user_tenants")
+      .update(`user_id=eq.${enc(userId)}&tenant_id=eq.${enc(tenantId)}`, {
+        modulos,
+      } as Partial<UserTenantRow>)
   },
 
   /** Lista todos os usuários da plataforma (Master Global) — via GoTrue Admin. */

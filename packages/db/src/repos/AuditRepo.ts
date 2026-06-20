@@ -18,6 +18,7 @@ export type AuditAction =
   | "user.deactivated"
   | "user.role_changed"
   | "user.permissions_changed"
+  | "user.modulos_changed"
   | "session.created"
   | "session.revoked"
   | "session.all_revoked"
