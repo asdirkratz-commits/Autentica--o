@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation"
-import { TenantRepo, AuditRepo } from "@repo/db"
+import { TenantRepo, AuditRepo, UserRepo } from "@repo/db"
 import { requireMasterGlobal } from "@/lib/admin-guard"
 import TenantStatusForm from "./TenantStatusForm"
 import TenantLogoForm from "./TenantLogoForm"
 import TenantThemeForm from "./TenantThemeForm"
 import TenantAiConfigForm from "./TenantAiConfigForm"
 import TenantInfoForm from "./TenantInfoForm"
+import TenantUsersSection from "./TenantUsersSection"
 import Link from "next/link"
 
 const STATUS_BADGE: Record<string, string> = {
@@ -27,6 +28,14 @@ export default async function TenantDetailPage({
   if (!tenant) notFound()
 
   const auditLogs = await AuditRepo.list({ tenantId: id, limit: 20 })
+  const members = (await UserRepo.getTenantMembers(id)).map((m) => ({
+    userId: m.userId,
+    fullName: m.fullName,
+    email: m.email,
+    role: m.role,
+    status: m.status,
+    modulos: m.modulos,
+  }))
 
   const infoRows: { label: string; value: string; mono?: boolean }[] = [
     { label: "ID", value: tenant.id, mono: true },
@@ -101,6 +110,9 @@ export default async function TenantDetailPage({
               </div>
             )}
           </div>
+
+          {/* Usuários + módulos liberados */}
+          <TenantUsersSection tenantId={tenant.id} initialMembers={members} />
 
           {/* Auditoria */}
           <div className="card card--flush">
