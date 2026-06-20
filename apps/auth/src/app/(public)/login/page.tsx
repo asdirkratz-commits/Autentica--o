@@ -11,7 +11,13 @@ type Tenant = { tenantId: string; role: string; name: string; slug: string }
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const returnTo = safeReturnTo(searchParams.get("return_to")) ?? "/"
+  // Sem return_to explícito, a landing padrão é o KontoHub (app único do
+  // ecossistema hoje) — não o portal de identidade. O portal segue acessível
+  // em /dashboard (perfil, admin). Quando houver 2+ apps, virar um lançador.
+  const returnTo =
+    safeReturnTo(searchParams.get("return_to")) ??
+    process.env.NEXT_PUBLIC_KONTOHUB_URL ??
+    "/dashboard"
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -48,7 +54,13 @@ function LoginForm() {
         return
       }
 
-      router.push(returnTo)
+      if (/^https?:\/\//i.test(returnTo)) {
+        // Destino em outro app do ecossistema (ex.: KontoHub, outra origem):
+        // router.push não navega cross-origin de forma confiável → full-page.
+        window.location.href = returnTo
+      } else {
+        router.push(returnTo)
+      }
     } catch {
       setError("Erro de conexão. Tente novamente.")
     } finally {
