@@ -4,36 +4,32 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 
 type Theme = { primary: string; secondary: string; accent: string }
+type Brand = { primary: string | null; secondary: string | null; accent: string | null }
 
+// Padrão = marca Konto (ciano). Usado quando a empresa ainda não tem cor definida.
 const DEFAULTS: Theme = {
-  primary:   "#2563eb",
-  secondary: "#7c3aed",
-  accent:    "#0891b2",
+  primary:   "#0d2d3a",
+  secondary: "#00b4d8",
+  accent:    "#48cae4",
 }
 
-function parseTheme(raw: string | null): Theme {
-  if (!raw) return { ...DEFAULTS }
-  try {
-    const t = JSON.parse(raw) as Partial<Theme>
-    return {
-      primary:   t.primary   ?? DEFAULTS.primary,
-      secondary: t.secondary ?? DEFAULTS.secondary,
-      accent:    t.accent    ?? DEFAULTS.accent,
-    }
-  } catch {
-    return { ...DEFAULTS }
+function initBrand(b: Brand | null): Theme {
+  return {
+    primary:   b?.primary   ?? DEFAULTS.primary,
+    secondary: b?.secondary ?? DEFAULTS.secondary,
+    accent:    b?.accent    ?? DEFAULTS.accent,
   }
 }
 
 export default function TenantThemeForm({
   tenantId,
-  currentTheme,
+  currentBrand,
 }: {
   tenantId: string
-  currentTheme: string | null
+  currentBrand: Brand | null
 }) {
   const router = useRouter()
-  const [theme, setTheme] = useState<Theme>(parseTheme(currentTheme))
+  const [theme, setTheme] = useState<Theme>(initBrand(currentBrand))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -80,7 +76,7 @@ export default function TenantThemeForm({
 
   return (
     <div className="card">
-      <p className="portal-section-label">Tema / cores</p>
+      <p className="portal-section-label">Cores da marca</p>
 
       {/* Preview das cores */}
       <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-4)" }}>

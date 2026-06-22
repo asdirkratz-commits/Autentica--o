@@ -30,11 +30,23 @@ export function buildCsp(nonce: string | null): string {
       ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`
       : "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
 
+  // Host exato do Supabase (logos de tenant) quando SUPABASE_URL existe; senão
+  // cai no curinga. Least-privilege: evita liberar img de qualquer projeto Supabase.
+  const supabaseHost = (() => {
+    try {
+      return new URL(process.env.SUPABASE_URL ?? "").host
+    } catch {
+      return ""
+    }
+  })()
+  const supabaseImg = supabaseHost ? `https://${supabaseHost}` : "https://*.supabase.co"
+
   return [
     "default-src 'self'",
     scriptSrc,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com",
+    // supabase storage: logos de tenant no bucket hub-logos (admin + portal)
+    `img-src 'self' data: blob: https://*.public.blob.vercel-storage.com ${supabaseImg}`,
     "font-src 'self' https://fonts.gstatic.com",
     // viacep: autofill de endereço por CEP nos formulários de tenant (admin)
     "connect-src 'self' https://viacep.com.br",

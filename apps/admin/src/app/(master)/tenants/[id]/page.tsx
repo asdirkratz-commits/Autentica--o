@@ -1,13 +1,14 @@
 import { notFound } from "next/navigation"
 import { TenantRepo, AuditRepo, UserRepo } from "@repo/db"
 import { requireMasterGlobal } from "@/lib/admin-guard"
+import Tabs, { type TabDef } from "./Tabs"
 import TenantStatusForm from "./TenantStatusForm"
+import TenantInfoForm from "./TenantInfoForm"
+import TenantUsersSection from "./TenantUsersSection"
 import TenantLogoForm from "./TenantLogoForm"
 import TenantThemeForm from "./TenantThemeForm"
 import TenantAiConfigForm from "./TenantAiConfigForm"
 import TenantCertificadoForm from "./TenantCertificadoForm"
-import TenantInfoForm from "./TenantInfoForm"
-import TenantUsersSection from "./TenantUsersSection"
 import Link from "next/link"
 
 const STATUS_BADGE: Record<string, string> = {
@@ -47,23 +48,11 @@ export default async function TenantDetailPage({
     { label: "Status atualizado", value: new Date(tenant.statusUpdatedAt).toLocaleString("pt-BR") },
   ]
 
-  return (
-    <div style={{ maxWidth: 960 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-6)" }}>
-        <Link href="/tenants" className="portal-link" aria-label="Voltar">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        </Link>
-        <div style={{ flex: 1 }}>
-          <h1 className="portal-greeting">{tenant.name}</h1>
-          <p className="portal-greeting-sub code-mono" style={{ fontFamily: "monospace" }}>{tenant.slug}</p>
-        </div>
-        <span className={`badge ${STATUS_BADGE[tenant.status] ?? "badge--neutral"}`}>{tenant.status}</span>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "var(--space-6)", alignItems: "start" }}>
-        {/* Coluna esquerda — info + auditoria */}
+  const tabs: TabDef[] = [
+    {
+      key: "info",
+      label: "Informações",
+      content: (
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
           <div className="card">
             <p className="portal-section-label">Informações</p>
@@ -112,39 +101,80 @@ export default async function TenantDetailPage({
             )}
           </div>
 
-          {/* Usuários + módulos liberados */}
-          <TenantUsersSection tenantId={tenant.id} initialMembers={members} />
-
-          {/* Auditoria */}
-          <div className="card card--flush">
-            <div style={{ padding: "var(--space-4) var(--space-6)", borderBottom: "1px solid #f3f4f6" }}>
-              <span className="portal-section-label" style={{ marginBottom: 0 }}>Histórico de auditoria</span>
-            </div>
-            {auditLogs.length === 0 ? (
-              <p className="table__empty">Nenhum registro.</p>
-            ) : (
-              auditLogs.map((log) => (
-                <div key={log.id} style={{ padding: "var(--space-3) var(--space-6)", borderBottom: "1px solid #f3f4f6" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--space-2)" }}>
-                    <span className="chip-mono">{log.action}</span>
-                    <span style={{ fontSize: 12, color: "#9ca3af", flexShrink: 0 }}>{new Date(log.createdAt).toLocaleString("pt-BR")}</span>
-                  </div>
-                  {log.ipAddress && <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>IP: {log.ipAddress}</p>}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Coluna direita — ações */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-          <TenantLogoForm tenantId={tenant.id} currentLogoUrl={tenant.logoUrl ?? null} />
-          <TenantThemeForm tenantId={tenant.id} currentTheme={tenant.theme ?? null} />
-          <TenantAiConfigForm tenantId={tenant.id} />
-          <TenantCertificadoForm tenantId={tenant.id} initialCnpj={tenant.cnpj ?? null} />
           <TenantStatusForm tenantId={tenant.id} currentStatus={tenant.status} adminUserId={adminUser.id} />
         </div>
+      ),
+    },
+    {
+      key: "users",
+      label: "Usuários e Módulos",
+      content: <TenantUsersSection tenantId={tenant.id} initialMembers={members} />,
+    },
+    {
+      key: "marca",
+      label: "Marca",
+      content: (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+          <TenantLogoForm tenantId={tenant.id} currentLogoUrl={tenant.logoUrl ?? null} />
+          <TenantThemeForm
+            tenantId={tenant.id}
+            currentBrand={{ primary: tenant.brandPrimary, secondary: tenant.brandSecondary, accent: tenant.brandAccent }}
+          />
+        </div>
+      ),
+    },
+    {
+      key: "ia",
+      label: "IA",
+      content: <TenantAiConfigForm tenantId={tenant.id} />,
+    },
+    {
+      key: "cert",
+      label: "Certificado",
+      content: <TenantCertificadoForm tenantId={tenant.id} initialCnpj={tenant.cnpj ?? null} />,
+    },
+    {
+      key: "audit",
+      label: "Auditoria",
+      content: (
+        <div className="card card--flush">
+          <div style={{ padding: "var(--space-4) var(--space-6)", borderBottom: "1px solid #f3f4f6" }}>
+            <span className="portal-section-label" style={{ marginBottom: 0 }}>Histórico de auditoria</span>
+          </div>
+          {auditLogs.length === 0 ? (
+            <p className="table__empty">Nenhum registro.</p>
+          ) : (
+            auditLogs.map((log) => (
+              <div key={log.id} style={{ padding: "var(--space-3) var(--space-6)", borderBottom: "1px solid #f3f4f6" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--space-2)" }}>
+                  <span className="chip-mono">{log.action}</span>
+                  <span style={{ fontSize: 12, color: "#9ca3af", flexShrink: 0 }}>{new Date(log.createdAt).toLocaleString("pt-BR")}</span>
+                </div>
+                {log.ipAddress && <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>IP: {log.ipAddress}</p>}
+              </div>
+            ))
+          )}
+        </div>
+      ),
+    },
+  ]
+
+  return (
+    <div style={{ maxWidth: 960 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-6)" }}>
+        <Link href="/tenants" className="portal-link" aria-label="Voltar">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </Link>
+        <div style={{ flex: 1 }}>
+          <h1 className="portal-greeting">{tenant.name}</h1>
+          <p className="portal-greeting-sub code-mono" style={{ fontFamily: "monospace" }}>{tenant.slug}</p>
+        </div>
+        <span className={`badge ${STATUS_BADGE[tenant.status] ?? "badge--neutral"}`}>{tenant.status}</span>
       </div>
+
+      <Tabs tabs={tabs} />
     </div>
   )
 }

@@ -233,8 +233,10 @@ export const UserRepo = {
       .from<UserTenantRow>("user_tenants")
       .select(`select=${UT_COLS}&tenant_id=eq.${enc(tenantId)}&order=invited_at.asc`)
     // Perfil (email/nome/avatar/último login) vem do GoTrue, por usuário.
+    // .catch isola falha de um lookup: um membro com perfil indisponível não
+    // derruba a lista inteira (degrada para nome/email vazio nessa linha).
     const profiles = await Promise.all(
-      rows.map((r) => goTrueAdmin.getById(r.user_id)),
+      rows.map((r) => goTrueAdmin.getById(r.user_id).catch(() => null)),
     )
     return rows.map((r, i) => {
       const p = profiles[i]

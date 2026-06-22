@@ -37,7 +37,8 @@ export async function PATCH(request: NextRequest, { params }: Params): Promise<N
   // parseTenantTheme valida e sanitiza cada cor — valores inválidos recebem o padrão
   const theme = parseTenantTheme(body)
 
-  await TenantRepo.updateTheme(id, JSON.stringify(theme))
+  // Grava nos dois lugares: cor_* (lido pelo KontoHub) + theme jsonb (lido pelo portal Auth)
+  await TenantRepo.updateBrand(id, theme)
 
   await AuditRepo.log({
     userId,

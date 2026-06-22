@@ -9,8 +9,10 @@
  *   theme: coluna JSONB no Supabase, mas o app trata `tenant.theme` como STRING JSON
  *     (callers fazem JSON.parse(tenant.theme)). fromRow faz stringify; updateTheme envia
  *     o objeto PARSEADO para a coluna jsonb.
- *   Colunas só do Supabase (cor_primaria/secundaria/destaque) não pertencem ao tipo
- *     Tenant do Auth — são ignoradas (não selecionadas/exigidas).
+ *   Marca (cor_primaria/secundaria/destaque): é a fonte que o KontoHub LÊ para pintar a
+ *     UI. O portal Auth pinta a partir de `theme`. Por isso `updateBrand` grava NOS DOIS
+ *     (cor_* + theme) — assim editar a marca no admin reflete no KontoHub E no portal.
+ *     `fromRow` expõe as cores como brandPrimary/brandSecondary/brandAccent.
  */
 import { supabase } from "../supabase-client"
 
@@ -29,6 +31,10 @@ type TenantRow = {
   // JSONB — pode vir como objeto/array/escalar; fromRow serializa para string
   theme: unknown
   ai_config: string | null
+  // Marca lida pelo KontoHub
+  cor_primaria: string | null
+  cor_secundaria: string | null
+  cor_destaque: string | null
   cnpj: string | null
   // Endereço (nomes pt-BR no Supabase)
   cep: string | null
@@ -55,6 +61,9 @@ export type Tenant = {
   plan: string
   theme: string | null
   aiConfig: string | null
+  brandPrimary: string | null
+  brandSecondary: string | null
+  brandAccent: string | null
   cnpj: string | null
   zipCode: string | null
   street: string | null
@@ -108,6 +117,9 @@ function fromRow(r: TenantRow): Tenant {
     // jsonb → string JSON (callers fazem JSON.parse). null/undefined preservados como null.
     theme: r.theme == null ? null : JSON.stringify(r.theme),
     aiConfig: r.ai_config,
+    brandPrimary: r.cor_primaria,
+    brandSecondary: r.cor_secundaria,
+    brandAccent: r.cor_destaque,
     cnpj: r.cnpj,
     zipCode: r.cep,
     street: r.logradouro,
@@ -211,6 +223,24 @@ export const TenantRepo = {
     await supabase.from<TenantRow>("tenants").update(`id=eq.${enc(id)}`, {
       // Envia o objeto parseado para a coluna jsonb (não a string crua)
       theme: themePatch(themeJson),
+      updated_at: new Date().toISOString(),
+    } as Partial<TenantRow>)
+  },
+
+  /**
+   * Grava a marca NOS DOIS lugares: cor_primaria/secundaria/destaque (lidas pelo
+   * KontoHub) E o jsonb `theme` (lido pelo portal Auth). Mantém os dois consumidores
+   * em sincronia a partir de um único ponto de edição (o admin).
+   */
+  async updateBrand(
+    id: string,
+    colors: { primary: string; secondary: string; accent: string },
+  ): Promise<void> {
+    await supabase.from<TenantRow>("tenants").update(`id=eq.${enc(id)}`, {
+      cor_primaria: colors.primary,
+      cor_secundaria: colors.secondary,
+      cor_destaque: colors.accent,
+      theme: { primary: colors.primary, secondary: colors.secondary, accent: colors.accent },
       updated_at: new Date().toISOString(),
     } as Partial<TenantRow>)
   },

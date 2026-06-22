@@ -1,17 +1,22 @@
-import { UserRepo } from "@repo/db"
+import { UserRepo, TenantRepo } from "@repo/db"
 import { requireMasterGlobal } from "@/lib/admin-guard"
+import AddGlobalUserButton from "./AddGlobalUserButton"
 
 export default async function UsersPage() {
   await requireMasterGlobal()
 
   // Lista da plataforma via GoTrue (auth.users) — identidade canônica pós-R4c.
   const allUsers = await UserRepo.listAllUsers()
+  const tenants = (await TenantRepo.listAll()).map((t) => ({ id: t.id, name: t.name }))
 
   return (
     <div>
-      <div style={{ marginBottom: "var(--space-6)" }}>
-        <h1 className="portal-greeting">Usuários</h1>
-        <p className="portal-greeting-sub">{allUsers.length} usuário(s) cadastrado(s).</p>
+      <div style={{ marginBottom: "var(--space-6)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--space-3)" }}>
+        <div>
+          <h1 className="portal-greeting">Usuários</h1>
+          <p className="portal-greeting-sub">{allUsers.length} usuário(s) cadastrado(s).</p>
+        </div>
+        <AddGlobalUserButton tenants={tenants} />
       </div>
 
       <div className="table-wrapper">
