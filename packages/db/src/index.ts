@@ -1,5 +1,6 @@
 export { db, getMigrationClient } from "./client"
 export { withTenantContext } from "./rls"
+export { storage } from "./storage"
 
 export * from "./schema/index"
 
@@ -11,6 +12,7 @@ export { AppRepo } from "./repos/AppRepo"
 export { AuditRepo } from "./repos/AuditRepo"
 export { InviteTokenRepo } from "./repos/InviteTokenRepo"
 export { PasswordResetRepo } from "./repos/PasswordResetRepo"
+export { CertRepo } from "./repos/CertRepo"
 
 export type { Tenant, TenantFilters, TenantAddress, CreateTenantDTO } from "./repos/TenantRepo"
 export type { App, AppSubscription, CreateAppDTO } from "./repos/AppRepo"
@@ -19,3 +21,4 @@ export type { CreateRefreshTokenDTO } from "./repos/RefreshTokenRepo"
 export type { AuditEntry, AuditAction, AuditTargetType, AuditFilters } from "./repos/AuditRepo"
 export type { InviteToken, CreateInviteTokenDTO } from "./repos/InviteTokenRepo"
 export type { PasswordResetToken, CreatePasswordResetDTO } from "./repos/PasswordResetRepo"
+export type { EmpresaCertificado, CreateCertificadoDTO } from "./repos/CertRepo"

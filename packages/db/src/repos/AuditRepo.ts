@@ -12,6 +12,8 @@ export type AuditAction =
   | "tenant.logo_updated"
   | "tenant.theme_updated"
   | "tenant.ai_config_updated"
+  | "tenant.certificate_uploaded"
+  | "tenant.certificate_removed"
   | "user.created"
   | "user.invited"
   | "user.activated"

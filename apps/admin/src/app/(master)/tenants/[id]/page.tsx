@@ -5,6 +5,7 @@ import TenantStatusForm from "./TenantStatusForm"
 import TenantLogoForm from "./TenantLogoForm"
 import TenantThemeForm from "./TenantThemeForm"
 import TenantAiConfigForm from "./TenantAiConfigForm"
+import TenantCertificadoForm from "./TenantCertificadoForm"
 import TenantInfoForm from "./TenantInfoForm"
 import TenantUsersSection from "./TenantUsersSection"
 import Link from "next/link"
@@ -140,6 +141,7 @@ export default async function TenantDetailPage({
           <TenantLogoForm tenantId={tenant.id} currentLogoUrl={tenant.logoUrl ?? null} />
           <TenantThemeForm tenantId={tenant.id} currentTheme={tenant.theme ?? null} />
           <TenantAiConfigForm tenantId={tenant.id} />
+          <TenantCertificadoForm tenantId={tenant.id} initialCnpj={tenant.cnpj ?? null} />
           <TenantStatusForm tenantId={tenant.id} currentStatus={tenant.status} adminUserId={adminUser.id} />
         </div>
       </div>
