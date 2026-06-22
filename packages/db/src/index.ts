@@ -13,6 +13,7 @@ export { AuditRepo } from "./repos/AuditRepo"
 export { InviteTokenRepo } from "./repos/InviteTokenRepo"
 export { PasswordResetRepo } from "./repos/PasswordResetRepo"
 export { CertRepo } from "./repos/CertRepo"
+export { AiConfigRepo } from "./repos/AiConfigRepo"
 
 export type { Tenant, TenantFilters, TenantAddress, CreateTenantDTO } from "./repos/TenantRepo"
 export type { App, AppSubscription, CreateAppDTO } from "./repos/AppRepo"
@@ -22,3 +23,4 @@ export type { AuditEntry, AuditAction, AuditTargetType, AuditFilters } from "./r
 export type { InviteToken, CreateInviteTokenDTO } from "./repos/InviteTokenRepo"
 export type { PasswordResetToken, CreatePasswordResetDTO } from "./repos/PasswordResetRepo"
 export type { EmpresaCertificado, CreateCertificadoDTO } from "./repos/CertRepo"
+export type { AiConfigPublic, TenantAiProvider } from "./repos/AiConfigRepo"

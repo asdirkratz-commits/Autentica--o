@@ -245,13 +245,6 @@ export const TenantRepo = {
     } as Partial<TenantRow>)
   },
 
-  async updateAiConfig(id: string, aiConfigEncrypted: string): Promise<void> {
-    await supabase.from<TenantRow>("tenants").update(`id=eq.${enc(id)}`, {
-      ai_config: aiConfigEncrypted,
-      updated_at: new Date().toISOString(),
-    } as Partial<TenantRow>)
-  },
-
   async updateStatus(
     id: string,
     status: TenantStatus,

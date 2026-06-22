@@ -18,6 +18,7 @@ const PUBLIC_PREFIXES = [
   "/reset-password",
   "/blocked",
   "/invite",
+  "/logout",
   "/api/auth/login",
   "/api/auth/logout",
   "/api/auth/refresh",

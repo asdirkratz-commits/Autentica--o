@@ -1,22 +1,29 @@
 import { NextRequest, NextResponse } from "next/server"
-import { TenantRepo, AuditRepo } from "@repo/db"
-import {
-  err, ErrorCode, enforceSameOrigin,
-  encryptApiKey, serializeAiConfig, deserializeAiConfig, toPublicAiConfig,
-  type AiProvider, type AiConfig,
-} from "@repo/auth-shared"
+import { TenantRepo, AiConfigRepo, AuditRepo, type TenantAiProvider } from "@repo/db"
+import { err, ErrorCode, enforceSameOrigin, cofreEncryptString } from "@repo/auth-shared"
 import { requireMasterGlobalApi } from "@/lib/api-guard"
 
 type Params = { params: Promise<{ id: string }> }
 
-type Body = {
-  activeProvider?: AiProvider
-  providers?: Partial<Record<AiProvider, { apiKey?: string; enabled?: boolean }>>
+const PROVIDERS: TenantAiProvider[] = ["openai", "gemini", "claude"]
+
+// GET /api/admin/tenants/[id]/ai-config — provider + se há chave (sem expor a chave)
+export async function GET(_request: NextRequest, { params }: Params): Promise<NextResponse> {
+  const guard = await requireMasterGlobalApi()
+  if (!guard.ok) return guard.response
+
+  const { id } = await params
+  const tenant = await TenantRepo.findById(id)
+  if (!tenant) {
+    return NextResponse.json(err(ErrorCode.NOT_FOUND, "Empresa não encontrada", 404).error, { status: 404 })
+  }
+
+  const config = await AiConfigRepo.get(id)
+  return NextResponse.json(config)
 }
 
-const VALID_PROVIDERS: AiProvider[] = ["openai", "gemini", "claude"]
-
-// PATCH /api/admin/tenants/[id]/ai-config — salva configuração de IA (criptografada)
+// PATCH /api/admin/tenants/[id]/ai-config — grava provider + chave cifrada (cofre).
+// Escreve na MESMA tabela tenant_ai_config que o KontoHub lê no runtime.
 export async function PATCH(request: NextRequest, { params }: Params): Promise<NextResponse> {
   const csrf = enforceSameOrigin(request)
   if (csrf) return csrf
@@ -25,146 +32,66 @@ export async function PATCH(request: NextRequest, { params }: Params): Promise<N
   if (!guard.ok) return guard.response
   const userId = guard.userId
 
-  const encKey = process.env.AI_ENCRYPTION_KEY
-  if (!encKey || encKey.length !== 64) {
-    console.error("AI_ENCRYPTION_KEY ausente ou inválida (deve ter 64 chars hex / 256 bits)")
+  const cofreKey = process.env.COFRE_SECRET_KEY
+  if (!cofreKey || !/^[0-9a-fA-F]{64}$/.test(cofreKey)) {
+    console.error("COFRE_SECRET_KEY ausente ou inválida (deve ter 64 chars hex / 256 bits)")
     return NextResponse.json(
       err(ErrorCode.INTERNAL_ERROR, "Configuração do servidor incompleta", 500).error,
-      { status: 500 }
+      { status: 500 },
     )
   }
 
   const { id } = await params
-
   const tenant = await TenantRepo.findById(id)
   if (!tenant) {
-    return NextResponse.json(
-      err(ErrorCode.NOT_FOUND, "Empresa não encontrada", 404).error,
-      { status: 404 }
-    )
+    return NextResponse.json(err(ErrorCode.NOT_FOUND, "Empresa não encontrada", 404).error, { status: 404 })
   }
 
-  let body: Body
+  let body: { provider?: string; apiKey?: string | null }
   try {
-    body = (await request.json()) as Body
+    body = (await request.json()) as typeof body
   } catch {
+    return NextResponse.json(err(ErrorCode.VALIDATION_ERROR, "Body inválido", 400).error, { status: 400 })
+  }
+
+  const provider = body.provider as TenantAiProvider | undefined
+  if (!provider || !PROVIDERS.includes(provider)) {
     return NextResponse.json(
-      err(ErrorCode.VALIDATION_ERROR, "Body inválido", 400).error,
-      { status: 400 }
+      err(ErrorCode.VALIDATION_ERROR, `provider deve ser um de: ${PROVIDERS.join(", ")}`, 400).error,
+      { status: 400 },
+    )
+  }
+  if (body.apiKey != null && (typeof body.apiKey !== "string" || body.apiKey.length > 512)) {
+    return NextResponse.json(
+      err(ErrorCode.VALIDATION_ERROR, "apiKey inválida.", 400).error,
+      { status: 400 },
     )
   }
 
-  const { activeProvider, providers } = body
-
-  if (activeProvider && !VALID_PROVIDERS.includes(activeProvider)) {
-    return NextResponse.json(
-      err(ErrorCode.VALIDATION_ERROR, `activeProvider deve ser um de: ${VALID_PROVIDERS.join(", ")}`, 400).error,
-      { status: 400 }
-    )
-  }
-
-  // Carregar config existente (para não sobrescrever chaves não alteradas)
-  let existingConfig: AiConfig | null = null
-  if (tenant.aiConfig) {
-    existingConfig = await deserializeAiConfig(tenant.aiConfig, encKey)
-  }
-
-  const mergedProviders: AiConfig["providers"] = { ...(existingConfig?.providers ?? {}) }
-
-  // Mesclar atualizações — criptografar apenas as chaves novas/alteradas
-  for (const [provider, update] of Object.entries(providers ?? {}) as [AiProvider, { apiKey?: string; enabled?: boolean }][]) {
-    if (!VALID_PROVIDERS.includes(provider)) continue
-    if (!update) continue
-
-    const existing = mergedProviders[provider]
-    const newEntry = {
-      keyEncrypted: existing?.keyEncrypted ?? "",
-      enabled: update.enabled ?? existing?.enabled ?? false,
+  try {
+    const newKey = body.apiKey?.trim()
+    if (newKey) {
+      const { cifrado, iv } = await cofreEncryptString(newKey, cofreKey)
+      await AiConfigRepo.upsert(id, { provider, iaChave: cifrado, iaChaveIv: iv })
+    } else {
+      // Só troca o provider; mantém a chave atual.
+      await AiConfigRepo.upsert(id, { provider })
     }
 
-    // Criptografar apenas se foi fornecida uma nova chave
-    if (update.apiKey?.trim()) {
-      newEntry.keyEncrypted = await encryptApiKey(update.apiKey.trim(), encKey)
-      newEntry.enabled = update.enabled ?? true
-    }
+    await AuditRepo.log({
+      userId,
+      tenantId: id,
+      action: "tenant.ai_config_updated",
+      targetType: "tenant",
+      targetId: id,
+      metadata: { provider, keyChanged: !!newKey },
+      ipAddress: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
+    })
 
-    // Só salva se tem chave ou se está atualizando o status de enable
-    if (newEntry.keyEncrypted || update.enabled !== undefined) {
-      mergedProviders[provider] = newEntry
-    }
+    const config = await AiConfigRepo.get(id)
+    return NextResponse.json({ ok: true, ...config })
+  } catch (e) {
+    console.error("[admin/tenants/ai-config PATCH]", e)
+    return NextResponse.json(err(ErrorCode.INTERNAL_ERROR, "Erro ao salvar configuração de IA.", 500).error, { status: 500 })
   }
-
-  // Validar que ao menos um provider está habilitado com chave
-  const hasAtLeastOne = Object.values(mergedProviders).some(
-    (p) => p && p.enabled && p.keyEncrypted
-  )
-  if (!hasAtLeastOne) {
-    return NextResponse.json(
-      err(ErrorCode.VALIDATION_ERROR, "Pelo menos um provider de IA deve estar habilitado com chave configurada", 400).error,
-      { status: 400 }
-    )
-  }
-
-  const resolvedProvider = activeProvider ?? existingConfig?.activeProvider ?? "openai"
-
-  // Validar que o activeProvider tem chave configurada
-  const activeEntry = mergedProviders[resolvedProvider]
-  if (!activeEntry?.keyEncrypted) {
-    return NextResponse.json(
-      err(ErrorCode.VALIDATION_ERROR, `O provider ativo (${resolvedProvider}) não possui chave configurada`, 400).error,
-      { status: 400 }
-    )
-  }
-
-  const newConfig: AiConfig = {
-    activeProvider: resolvedProvider,
-    providers: mergedProviders,
-  }
-
-  const serialized = await serializeAiConfig(newConfig, encKey)
-  await TenantRepo.updateAiConfig(id, serialized)
-
-  await AuditRepo.log({
-    userId,
-    action: "tenant.ai_config_updated",
-    targetType: "tenant",
-    targetId: id,
-    // Log intencionalmente sem as chaves
-    metadata: {
-      activeProvider: resolvedProvider,
-      providersConfigured: Object.keys(mergedProviders),
-    },
-    ipAddress:
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
-  })
-
-  return NextResponse.json({ ok: true, config: toPublicAiConfig(newConfig) })
-}
-
-// GET /api/admin/tenants/[id]/ai-config — retorna config pública (sem chaves)
-export async function GET(_request: NextRequest, { params }: Params): Promise<NextResponse> {
-  const guard = await requireMasterGlobalApi()
-  if (!guard.ok) return guard.response
-
-  const { id } = await params
-
-  const tenant = await TenantRepo.findById(id)
-  if (!tenant) {
-    return NextResponse.json(
-      err(ErrorCode.NOT_FOUND, "Empresa não encontrada", 404).error,
-      { status: 404 }
-    )
-  }
-
-  if (!tenant.aiConfig) {
-    return NextResponse.json({ config: null })
-  }
-
-  const encKey = process.env.AI_ENCRYPTION_KEY
-  if (!encKey) return NextResponse.json({ config: null })
-
-  const config = await deserializeAiConfig(tenant.aiConfig, encKey)
-  if (!config) return NextResponse.json({ config: null })
-
-  return NextResponse.json({ config: toPublicAiConfig(config) })
 }
