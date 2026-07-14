@@ -57,8 +57,16 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     return withCsp(NextResponse.next({ request: { headers: safeHeaders } }))
   }
 
-  // ── 1. JWT presente? ──────────────────────────────────────────────────────
-  const token = getAccessTokenFromCookies(request)
+  // ── 1. JWT presente? (cookie do browser OU Bearer server-to-server) ───────
+  // Chamadas S2S (ex.: BFF do KontoHub) não têm o cookie de sessão; aceitam o
+  // MESMO JWT via Authorization: Bearer. Sem cookie ambiente ⇒ sem vetor CSRF
+  // (o enforceSameOrigin das rotas já libera requisições sem header Origin).
+  const bearer = request.headers.get("authorization")
+  const token =
+    getAccessTokenFromCookies(request) ??
+    (bearer && bearer.toLowerCase().startsWith("bearer ")
+      ? bearer.slice(7).trim()
+      : null)
   if (!token) {
     return withCsp(NextResponse.redirect(new URL("/login", request.url)))
   }
