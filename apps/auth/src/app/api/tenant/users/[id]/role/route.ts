@@ -50,7 +50,12 @@ export async function PATCH(
     )
   }
 
-  const denied = assertActorCanManageTarget({ role: actorRole, isMasterGlobal }, target.role)
+  // Status GLOBAL do alvo (não confiar só no papel de membership do tenant).
+  const targetUser = await UserRepo.findByGoTrueId(targetUserId)
+  const denied = assertActorCanManageTarget(
+    { role: actorRole, isMasterGlobal },
+    { role: target.role, isMasterGlobal: targetUser?.isMasterGlobal ?? false },
+  )
   if (denied) return denied
 
   await UserRepo.updateRole(targetUserId, tenantId, newRole)

@@ -51,7 +51,13 @@ export async function POST(
     )
   }
 
-  const denied = assertActorCanManageTarget({ role: actorRole, isMasterGlobal }, target.role)
+  // Status GLOBAL do alvo — impede admin comum de resetar senha de um master
+  // global vinculado ao tenant como colaborador (takeover). Ver auditoria #1.
+  const targetUser = await UserRepo.findByGoTrueId(targetUserId)
+  const denied = assertActorCanManageTarget(
+    { role: actorRole, isMasterGlobal },
+    { role: target.role, isMasterGlobal: targetUser?.isMasterGlobal ?? false },
+  )
   if (denied) return denied
 
   // targetUserId = GoTrue id (user_tenants.user_id). O GoTrue faz o hash.
