@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { UserRepo, AuditRepo } from "@repo/db"
 import { err, ErrorCode, enforceSameOrigin } from "@repo/auth-shared"
-import { requireActiveTenantMember } from "@/lib/api-guard"
+import { requireActiveTenantMember, assertActorCanManageTarget } from "@/lib/api-guard"
 
 // PATCH /api/tenant/users/[id]/status
 export async function PATCH(
@@ -13,14 +13,7 @@ export async function PATCH(
 
   const guard = await requireActiveTenantMember()
   if (!guard.ok) return guard.response
-  const { userId: actorId, tenantId, role: actorRole } = guard.ctx
-
-  if (actorRole !== "admin") {
-    return NextResponse.json(
-      err(ErrorCode.FORBIDDEN, "Acesso negado", 403).error,
-      { status: 403 }
-    )
-  }
+  const { userId: actorId, tenantId, role: actorRole, isMasterGlobal } = guard.ctx
 
   const { id: targetUserId } = await params
 
@@ -43,7 +36,8 @@ export async function PATCH(
     )
   }
 
-  // Verificar hierarquia: não pode alterar usuário com role >= próprio
+  // Alvo membro deste tenant + hierarquia (master gerencia todos; admin só user;
+  // ninguém não-master mexe em master global). Ver assertActorCanManageTarget.
   const targetMembership = await UserRepo.getUserRoleInTenant(targetUserId, tenantId)
   if (!targetMembership) {
     return NextResponse.json(
@@ -52,16 +46,12 @@ export async function PATCH(
     )
   }
 
-  const ROLE_LEVEL: Record<string, number> = { admin: 1, user: 0 }
-  const actorLevel = ROLE_LEVEL[actorRole] ?? 0
-  const targetLevel = ROLE_LEVEL[targetMembership.role] ?? 0
-
-  if (actorLevel <= targetLevel) {
-    return NextResponse.json(
-      err(ErrorCode.FORBIDDEN, "Sem permissão para alterar este usuário", 403).error,
-      { status: 403 }
-    )
-  }
+  const targetUser = await UserRepo.findByGoTrueId(targetUserId)
+  const denied = assertActorCanManageTarget(
+    { role: actorRole, isMasterGlobal },
+    { role: targetMembership.role, isMasterGlobal: targetUser?.isMasterGlobal ?? false },
+  )
+  if (denied) return denied
 
   await UserRepo.setUserStatusInTenant(targetUserId, tenantId, status)
 
