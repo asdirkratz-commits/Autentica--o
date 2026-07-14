@@ -9,9 +9,9 @@ import type { UserPermissions } from "@repo/auth-shared"
 export async function GET(): Promise<NextResponse> {
   const guard = await requireActiveTenantMember()
   if (!guard.ok) return guard.response
-  const { tenantId, role } = guard.ctx
+  const { tenantId, role, isMasterGlobal } = guard.ctx
 
-  if (role !== "admin") {
+  if (role !== "admin" && !isMasterGlobal) {
     return NextResponse.json(
       err(ErrorCode.FORBIDDEN, "Acesso negado", 403).error,
       { status: 403 }

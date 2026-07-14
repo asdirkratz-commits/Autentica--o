@@ -65,3 +65,40 @@ export async function requireActiveTenantMember(): Promise<TenantGuardResult> {
 
   return { ok: true, ctx: { userId, tenantId, role: membership.role, isMasterGlobal: false } }
 }
+
+/**
+ * Autoriza o ATOR a gerenciar o usuário-ALVO dentro do tenant.
+ * - master global gerencia qualquer um;
+ * - NENHUM ator não-master gerencia um alvo master global — o papel de membership
+ *   no tenant (`user`/`admin`) não rebaixa o status GLOBAL; caso contrário um admin
+ *   comum poderia resetar a senha global de um master vinculado como colaborador;
+ * - admin gerencia apenas papéis inferiores (user), nunca outro admin;
+ * - demais papéis: negado.
+ * Retorna a resposta 403 a devolver, ou `null` para prosseguir.
+ */
+export function assertActorCanManageTarget(
+  actor: { role: string | null; isMasterGlobal: boolean },
+  target: { role: string; isMasterGlobal: boolean },
+): NextResponse | null {
+  if (actor.isMasterGlobal) return null
+  if (target.isMasterGlobal) {
+    return NextResponse.json(
+      err(ErrorCode.FORBIDDEN, "Sem permissão para alterar este usuário", 403).error,
+      { status: 403 },
+    )
+  }
+  if (actor.role !== "admin") {
+    return NextResponse.json(
+      err(ErrorCode.FORBIDDEN, "Acesso negado", 403).error,
+      { status: 403 },
+    )
+  }
+  const LEVEL: Record<string, number> = { admin: 1, user: 0 }
+  if ((LEVEL[actor.role] ?? 0) <= (LEVEL[target.role] ?? 0)) {
+    return NextResponse.json(
+      err(ErrorCode.FORBIDDEN, "Sem permissão para alterar este usuário", 403).error,
+      { status: 403 },
+    )
+  }
+  return null
+}
