@@ -12,6 +12,8 @@ export const MODULO_IDS: readonly string[] = [
   "dirpf",
   "lcdpr",
   "nfe",
+  "nfse",
+  "auditoria",
   "kontozap",
   "financeiro",
   "itr",
