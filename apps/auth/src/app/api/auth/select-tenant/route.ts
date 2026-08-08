@@ -105,7 +105,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  // Permissions ficam no Neon user_tenants (não estão no Supabase user_tenants)
+  // Permissions vêm da coluna `permissions` do user_tenants (Supabase, migration 059)
   const neonTenantEntry = await UserRepo.getUserRoleInTenant(neonUser.id, tenantId)
   const permissions = (neonTenantEntry?.permissions ?? {}) as Record<string, boolean>
 

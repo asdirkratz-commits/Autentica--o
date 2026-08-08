@@ -13,6 +13,7 @@ type UserTenantRow = {
   role: 'Master' | 'Administrador' | 'Colaborador'
   status: 'ativo' | 'inativo' | 'bloqueado'
   modulos: string[]
+  permissions: Record<string, boolean> | null
 }
 
 export type SupabaseTenantEntry = {
@@ -53,7 +54,10 @@ function rowsToTenants(utRows: UserTenantRow[]): SupabaseTenantEntry[] {
       isMasterGlobal,
       status: ut.status === 'ativo' ? 'active' : 'inactive',
       modulos: ut.modulos ?? [],
-      permissions: {},
+      // A coluna existe e é o que a tela de permissões grava. Devolver `{}` fixo
+      // fazia o claim nascer vazio em TODO token emitido por este caminho — a
+      // tela escrevia um dado que nenhuma sessão jamais carregava.
+      permissions: ut.permissions ?? {},
     }
   })
 }
@@ -93,7 +97,7 @@ export async function getSupabaseUserTenantsByGoTrueId(goTrueId: string): Promis
 
   try {
     const res = await fetch(
-      `${env.url}/rest/v1/user_tenants?user_id=eq.${encodeURIComponent(goTrueId)}&select=user_id,tenant_id,role,status,modulos`,
+      `${env.url}/rest/v1/user_tenants?user_id=eq.${encodeURIComponent(goTrueId)}&select=user_id,tenant_id,role,status,modulos,permissions`,
       { headers: headers(env.key) },
     )
     if (!res.ok) return null
