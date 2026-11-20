@@ -1,0 +1,4 @@
+# Spec Kit: o manifesto guarda o hash de cada arquivo instalado; CRLF no checkout
+# faria todos parecerem modificados pelo usuario na proxima atualizacao.
+.specify/** text eol=lf
+.claude/skills/speckit-*/** text eol=lf
